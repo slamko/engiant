@@ -1,0 +1,5 @@
+raylib/
+**.so
+**.o
+**.a
+engine
