@@ -11,10 +11,10 @@ program main
   type(vector2_type), parameter :: MIDDLE = vector2_type(MIDDLE_X, MIDDLE_Y)
   integer, parameter :: RADIUS = min(SCREEN_HEIGHT, SCREEN_WIDTH) / 2
   integer, parameter :: FPS = 60
-  integer, parameter :: COEFF_ELASTIC = 1.0
+  integer, parameter :: COEFF_ELASTIC = 0.95
   real, parameter :: PART_RADIUS = 3.0
 
-  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 2.0)
+  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 10.0)
   real :: delta, prev_delta
   integer :: num_alloc
 
@@ -74,7 +74,7 @@ program main
   eng%cur_obj = 0
   eng_ptr => eng
 
-  call instantiate_rectangle (eng_ptr, MIDDLE, 100.0, 100.0)
+  ! call instantiate_rectangle (eng_ptr, MIDDLE, 100.0, 100.0)
 
   if (segment_intersect(vector2_type(10.0, 5.0), vector2_type(10.0, 5.0), vector2_type(25.0, 15.0), vector2_type(20.0, 5.0))) then
      print *, "Hello"
@@ -85,7 +85,7 @@ program main
 
      call begin_drawing()
      call clear_background(BLACK)
-     call draw_circle (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
+     ! call draw_circle (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
 
      ! call constraint(eng%obj, size(eng%obj))
      ! call apply_pos(eng%obj, size(eng%obj))
@@ -100,7 +100,8 @@ program main
      call render_sticks(eng%obj, size(eng%obj))
 
      if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
-        call instantiate_rectangle (eng_ptr, get_mouse_position(), 100.0, 100.0)
+        ! call instantiate_rectangle (eng_ptr, get_mouse_position(), 100.0, 100.0)
+        call instantiate_circle (eng_ptr, get_mouse_position(), 80.0, 8)
      end if
 
      call end_drawing()
@@ -189,7 +190,6 @@ contains
        inter = .TRUE.
     end if
   end function point_in_segment
-
 
   function intersect_point (s1p1, s1p2, s2p1, s2p2) result (inter)
     type (vector2_type) :: s1p1, s1p2, s2p1, s2p2
@@ -394,8 +394,9 @@ contains
               real :: fact
 
               normal_diff = vnormalize (diff) !
-              fact = (dist - cur%length) / (2.0 * 32.0)
-              ! fact = (dist - cur%length) / (2.0 * 1.0)
+              ! fact = (dist - cur%length) / (2.0 * 32.0)
+              
+              fact = (dist - cur%length) / (2.0 * 1.0)
               apply_vec = vscale (normal_diff, fact)
 
               if (cur%p1%pos%x > cur%p2%pos%x) then
@@ -478,6 +479,60 @@ contains
        end block
     end do
   end subroutine
+
+  subroutine instantiate_circle (eng, pos, radius, sector_num)
+    type (engine), pointer :: eng
+    real :: radius
+    integer :: sector_num
+    type (vector2_type), dimension(4) :: init_pos
+    type (vector2_type) :: pos
+    type (object), pointer :: ob
+    integer :: s, o = 0
+    integer :: i
+
+    ob => eng%obj(eng%cur_obj + 1)
+    ob%init = .TRUE.
+
+    allocate(ob%particles(sector_num + 1))
+    allocate(ob%sticks(sector_num * 2))
+
+    ob%particles(1) = point_particle(.TRUE., pos, pos, vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0)
+
+    do i = 2, sector_num + 1
+       block
+         type (vector2_type) :: point
+         real :: x, y
+
+         x = pos%x + radius * cos(2 * PI * real(i - 1) / real(sector_num))
+         y = pos%y + radius * sin(2 * PI * real(i - 1) / real(sector_num))
+         point = vector2_type (x, y)
+         
+         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0)
+       end block
+    end do
+
+    do i = 1, sector_num
+       block
+         real :: length, length_center
+         integer :: next_id
+
+         next_id = i + 2
+
+         if (i + 2 > sector_num + 1) then 
+            next_id = 2
+         end if
+         
+         length = vmag(vsub(ob%particles(i + 1)%pos, ob%particles(next_id)%pos))
+         length_center = vmag(vsub(ob%particles(i + 1)%pos, ob%particles(1)%pos))
+
+         ob%sticks(2*(i - 1) + 1) = stick(.TRUE., ob%particles(i + 1), ob%particles(next_id), length, .TRUE.)
+         ob%sticks(2*i) = stick(.TRUE., ob%particles(i + 1), ob%particles(1), length_center, .FALSE.)
+     end block
+    end do
+
+    eng%cur_obj = eng%cur_obj + 1
+  end subroutine instantiate_circle
+    
 
   subroutine instantiate_rectangle(eng, pos, width, height)
     type (engine), pointer :: eng
