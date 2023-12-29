@@ -81,19 +81,19 @@ program main
   end if
 
   do while (.not. window_should_close())
+     block
+       integer :: i
      delta = get_frame_time()
 
      call begin_drawing()
      call clear_background(BLACK)
      ! call draw_circle (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
 
-     ! call constraint(eng%obj, size(eng%obj))
-     ! call apply_pos(eng%obj, size(eng%obj))
-     ! call solve_sticks(eng%obj, size(eng%obj))
-
-     call constraint(eng%obj, size(eng%obj))
-     call apply_pos(eng%obj, size(eng%obj))
-     call solve_sticks(eng%obj, size(eng%obj))
+     do i = 1, 2
+        call constraint(eng%obj, size(eng%obj))
+        call apply_pos(eng%obj, size(eng%obj))
+        call solve_sticks(eng%obj, size(eng%obj))
+     end do
 
      call verlet(eng%obj, size(eng%obj))
      ! call renderng%obj, size(eng%obj))
@@ -101,10 +101,11 @@ program main
 
      if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
         ! call instantiate_rectangle (eng_ptr, get_mouse_position(), 100.0, 100.0)
-        call instantiate_circle (eng_ptr, get_mouse_position(), 80.0, 8)
+        call instantiate_circle (eng_ptr, get_mouse_position(), 20.0, 8)
      end if
 
      call end_drawing()
+     end block
   end do
 
   call close_window()
@@ -258,7 +259,7 @@ contains
     real :: scale, mag
     real :: limit
 
-    limit = 0.5
+    limit = 0.6
 
     if (associated(point)) then
        if (associated(point, line%p1)) then
@@ -278,7 +279,7 @@ contains
 
        scale = (1 / (mag))
       
-       dir_vec = vscale(vec_stick, scale * 1.0)
+       dir_vec = vscale(vec_stick, scale * 3.0)
        
        point%apply_pos = vadd(point%apply_pos, dir_vec)
     end if
@@ -357,6 +358,7 @@ contains
          if (cur%pos%y > SCREEN_HEIGHT - cur%radius) then
              cur%pos%y = SCREEN_HEIGHT - cur%radius
              cur%prev_pos%y = cur%pos%y + (cur%verlet_velocity%y * COEFF_ELASTIC) * delta
+             cur%prev_pos%x = cur%pos%x - (cur%verlet_velocity%x * COEFF_ELASTIC) * delta
           end if
  
        end do
