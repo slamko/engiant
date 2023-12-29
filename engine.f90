@@ -14,7 +14,7 @@ program main
   integer, parameter :: COEFF_ELASTIC = 1.0
   real, parameter :: PART_RADIUS = 3.0
 
-  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86)
+  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 10.0)
   real :: delta, prev_delta
   integer :: num_alloc
 
@@ -258,20 +258,15 @@ contains
     real :: scale, mag
 
     if (associated(point)) then
-       vec_stick = vnormalize(vsub(line%p1%pos, line%p2%pos))
-       norm = vector2_type(vec_stick%y, vec_stick%x)
-       pseudo = vadd(point%pos, norm)
-       targ = intersect_point(line%p1%pos, line%p2%pos, pseudo, point%pos)
-       targ_vec = vsub(targ, point%pos)
-
-       mag = vmag (targ_vec)
-       if (mag < 0.01) then
+       if (associated(point, line%p1)) then
+          vec_stick = vnormalize(vsub(line%p2%pos, point%pos))
        else
-          ! scale = (1 / (mag ** 2))
+          vec_stick = vnormalize(vsub(line%p1%pos, point%pos))
        end if
-       scale = 0.1
-       
-       dir_vec = vscale(targ_vec, scale)
+
+       scale = 1.5
+      
+       dir_vec = vscale(vec_stick, scale)
        
        point%apply_pos = vadd(point%apply_pos, dir_vec)
     end if
@@ -313,8 +308,9 @@ contains
                      last_inter = ii
                   end if
 
-                  call move_collision(me%sticks(ii)%p1, cur_obj%sticks(iii))
-                  call move_collision(me%sticks(ii)%p2, cur_obj%sticks(iii))
+                  call move_collision(me%sticks(ii)%p1, me%sticks(ii))
+                  call move_collision(me%sticks(ii)%p2, me%sticks(ii))
+
                end if
 
             end do
@@ -386,8 +382,8 @@ contains
               real :: fact
 
               normal_diff = vnormalize (diff) !
-              fact = (dist - cur%length) / (2.0 * 32.0)
-              ! fact = (dist - cur%length) / (2.0 * 1.0)
+              ! fact = (dist - cur%length) / (2.0 * 32.0)
+              fact = (dist - cur%length) / (2.0 * 1.0)
               apply_vec = vscale (normal_diff, fact)
 
               if (cur%p1%pos%x > cur%p2%pos%x) then
