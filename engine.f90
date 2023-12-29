@@ -14,7 +14,7 @@ program main
   integer, parameter :: COEFF_ELASTIC = 1.0
   real, parameter :: PART_RADIUS = 3.0
 
-  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 8.0)
+  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86)
   real :: delta, prev_delta
   integer :: num_alloc
 
@@ -35,12 +35,14 @@ program main
      type (vector2_type) :: verlet_velocity
      type (vector2_type) :: apply_pos
      real :: radius
+     integer :: intersect_cnt
   end type point_particle
 
   type, extends (render_body) :: stick
      type (point_particle), pointer :: p1
      type (point_particle), pointer :: p2
      real :: length
+     logical :: edge_stick
   end type stick
 
   type, extends (render_body) :: object
@@ -85,10 +87,16 @@ program main
      call clear_background(BLACK)
      call draw_circle (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
 
+     ! call constraint(eng%obj, size(eng%obj))
+     ! call apply_pos(eng%obj, size(eng%obj))
+     ! call solve_sticks(eng%obj, size(eng%obj))
+
      call constraint(eng%obj, size(eng%obj))
-     call verlet(eng%obj, size(eng%obj))
+     call apply_pos(eng%obj, size(eng%obj))
      call solve_sticks(eng%obj, size(eng%obj))
-     call render(eng%obj, size(eng%obj))
+
+     call verlet(eng%obj, size(eng%obj))
+     ! call renderng%obj, size(eng%obj))
      call render_sticks(eng%obj, size(eng%obj))
 
      if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
@@ -165,6 +173,24 @@ contains
     vel = vscale(vsub(point%pos, prev_pos), 1.0 / (2.0 * avarage_delta))
   end function verlet_velocity
 
+  function point_in_segment (x, y, s1p1, s1p2, s2p1, s2p2) result (inter)
+    type (vector2_type) :: s1p1, s1p2, s2p1, s2p2
+    real :: x, y
+    logical :: inter
+    inter =  .FALSE.
+
+    if ((y < max(s1p1%y, s1p2%y) .and. y > min(s1p1%y, s1p2%y)) .and. (x < max(s2p1%x, s2p2%x) .and. x > min(s2p1%x, s2p2%x))) then
+       inter = .TRUE.
+    end if
+    ! if (y < max(s2p1%y, s2p2%y) .and. y > min(s2p1%y, s2p2%y)) then
+    ! inter = .TRUE.
+    ! end if
+    if ((x < max(s1p1%x, s1p2%x) .and. x > min(s1p1%x, s1p2%x)) .and. (y < max(s2p1%y, s2p2%y) .and. y > min(s2p1%y, s2p2%y))) then
+       inter = .TRUE.
+    end if
+  end function point_in_segment
+
+
   function intersect_point (s1p1, s1p2, s2p1, s2p2) result (inter)
     type (vector2_type) :: s1p1, s1p2, s2p1, s2p2
     real :: a1, b1, a2, b2, x, y
@@ -178,9 +204,13 @@ contains
 
     if (abs(a2 - a1) < 0.001) then
        inter = vector2_type(0.0, 0.0)
+       print *, "Error: little\n"
     else
        x = (b1 - b2) / (a2 - a1)
        y = a1 * x + b1
+
+       if (.not. point_in_segment(x, y, s1p1, s1p2, s2p1, s2p2)) print *, "ERROR\n"
+       
        inter = vector2_type(x, y)
     end if
 
@@ -205,17 +235,47 @@ contains
        x = (b1 - b2) / (a2 - a1)
        y = a1 * x + b1
 
-       if (y < max(s1p1%y, s1p2%y) .and. y > min(s1p1%y, s1p2%y)) then
-          if (y < max(s2p1%y, s2p2%y) .and. y > min(s2p1%y, s2p2%y)) then
-             if (x < max(s1p1%x, s1p2%x) .and. x > min(s1p1%x, s1p2%x)) then
-                if (x < max(s2p1%x, s2p2%x) .and. x > min(s2p1%x, s2p2%x)) then
-                   inter = .TRUE.
-                end if
-             end if
-          end if
+       if ((y < max(s1p1%y, s1p2%y) .and. y > min(s1p1%y, s1p2%y)) .and. (x < max(s2p1%x, s2p2%x) .and. x > min(s2p1%x, s2p2%x))) then
+          inter = .TRUE.
        end if
+       ! if (y < max(s2p1%y, s2p2%y) .and. y > min(s2p1%y, s2p2%y)) then
+          ! inter = .TRUE.
+       ! end if
+       if ((x < max(s1p1%x, s1p2%x) .and. x > min(s1p1%x, s1p2%x)) .and. (y < max(s2p1%y, s2p2%y) .and. y > min(s2p1%y, s2p2%y))) then
+          inter = .TRUE.
+       end if
+
+       ! if (x < max(s2p1%x, s2p2%x) .and. x > min(s2p1%x, s2p2%x)) then
+          ! inter = .TRUE.
+       ! end if
     end if
   end function segment_intersect
+
+  subroutine move_collision (point, line)
+    type (point_particle), pointer :: point
+    type (stick), intent(in) :: line
+    type (vector2_type) :: vec_stick, norm, pseudo, targ, dir_vec, targ_vec
+    real :: scale, mag
+
+    if (associated(point)) then
+       vec_stick = vnormalize(vsub(line%p1%pos, line%p2%pos))
+       norm = vector2_type(vec_stick%y, vec_stick%x)
+       pseudo = vadd(point%pos, norm)
+       targ = intersect_point(line%p1%pos, line%p2%pos, pseudo, point%pos)
+       targ_vec = vsub(targ, point%pos)
+
+       mag = vmag (targ_vec)
+       if (mag < 0.01) then
+       else
+          ! scale = (1 / (mag ** 2))
+       end if
+       scale = 0.1
+       
+       dir_vec = vscale(targ_vec, scale)
+       
+       point%apply_pos = vadd(point%apply_pos, dir_vec)
+    end if
+  end subroutine move_collision
 
   subroutine collision (me, objects, num)
     type (object), pointer :: me
@@ -236,103 +296,33 @@ contains
 
        do ii = 1, size (me%sticks)
           block
-            integer :: iii
-            integer :: found
-            integer, dimension (2) :: me_id, id
-            me_id = 1
-            id = 1
-            found = 0
-            
-            do iii = 1, size (cur_obj%sticks)
-               if (segment_intersect(me%sticks(ii)%p1%pos, me%sticks(ii)%p2%pos, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
-                  found = found + 1
-                  id(found) = iii
+            integer :: iii, last_inter
+            last_inter = 0
+           
+            ! if (.not. me%sticks(ii)%edge_stick) cycle
 
-                  if (found == 2) exit
+            do iii = 1, size (cur_obj%sticks)
+
+               ! if (.not. cur_obj%sticks(iii)%edge_stick) cycle
+
+               if (segment_intersect(me%sticks(ii)%p1%pos, me%sticks(ii)%p2%pos, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
+
+                  if (last_inter .ne. ii) then
+                     me%sticks(ii)%p1%intersect_cnt = me%sticks(ii)%p1%intersect_cnt + 1
+                     me%sticks(ii)%p2%intersect_cnt = me%sticks(ii)%p2%intersect_cnt + 1
+                     last_inter = ii
+                  end if
+
+                  call move_collision(me%sticks(ii)%p1, cur_obj%sticks(iii))
+                  call move_collision(me%sticks(ii)%p2, cur_obj%sticks(iii))
                end if
+
             end do
 
-            if (found == 1) then
-               block
-                 integer :: found_id
-                 found_id = id(1)
-               found = 0
+          end block
 
-               do iii = 1, size (me%sticks)
-                  if (segment_intersect(me%sticks(iii)%p1%pos, me%sticks(iii)%p2%pos, cur_obj%sticks(found_id)%p1%pos, cur_obj%sticks(found_id)%p2%pos)) then
-                     found = found + 1
-                     id(found) = found_id
-                     
-                     if (found == 2) exit
-                  end if
-               end do
-
-               if (found >= 2) then
-                  block
-                    type (point_particle), pointer :: point => NULL()
-                    type (vector2_type) :: vec_stick, norm, pseudo, targ, dir_vec
-
-                    if (associated(me%sticks(me_id(1))%p1, me%sticks(me_id(2))%p1)) then
-                       point => me%sticks(me_id(1))%p1
-                    else if (associated(me%sticks(me_id(1))%p1, me%sticks(me_id(2))%p2)) then
-                       point => me%sticks(me_id(1))%p1
-                    else if (associated(me%sticks(me_id(1))%p2, me%sticks(me_id(2))%p1)) then
-                       point => me%sticks(me_id(1))%p2
-                    else if (associated(me%sticks(me_id(1))%p2, me%sticks(me_id(2))%p2)) then
-                       point => me%sticks(me_id(1))%p2
-                    end if
-
-                    if (associated(point)) then
-                       vec_stick = vnormalize(vsub(cur_obj%sticks(found_id)%p1%pos, cur_obj%sticks(found_id)%p2%pos))
-                       norm = vector2_type(vec_stick%y, -vec_stick%x)
-                       pseudo = vadd(point%pos, norm)
-                       targ = intersect_point(cur_obj%sticks(found_id)%p1%pos, cur_obj%sticks(found_id)%p2%pos, pseudo, point%pos)
-                       dir_vec = vscale(vsub(targ, point%pos), 0.05)
-
-                       ! point%apply_pos = vadd(point%apply_pos, dir_vec)
-                       point%pos = vadd(point%pos, dir_vec)
- 
-                    end if
-                    
-                  end block
-
-               end if
-
-             end block
-          else if (found >= 2) then
-             block
-               type (point_particle), pointer :: point => NULL()
-               type (vector2_type) :: vec_stick, norm, pseudo, targ, dir_vec
-               integer :: found_id
-               found_id = me_id(1)
-
-                    if (associated(cur_obj%sticks(id(1))%p1, cur_obj%sticks(id(1))%p2)) then
-                       point => cur_obj%sticks(id(1))%p1
-                    else if (associated(cur_obj%sticks(id(1))%p1, cur_obj%sticks(id(2))%p2)) then
-                       point => cur_obj%sticks(id(1))%p1
-                    else if (associated(cur_obj%sticks(id(1))%p2, cur_obj%sticks(id(2))%p1)) then
-                       point => cur_obj%sticks(id(1))%p2
-                    else if (associated(cur_obj%sticks(id(1))%p2, cur_obj%sticks(id(2))%p2)) then
-                       point => cur_obj%sticks(id(1))%p2
-                    end if
-
-                    if (associated(point)) then
-                    vec_stick = vnormalize(vsub(me%sticks(found_id)%p1%pos, me%sticks(found_id)%p2%pos))
-                    norm = vector2_type(vec_stick%y, -vec_stick%x)
-                    pseudo = vadd(point%pos, norm)
-                    targ = intersect_point(me%sticks(found_id)%p1%pos, me%sticks(found_id)%p2%pos, pseudo, point%pos)
-                    dir_vec = vscale(vsub(targ, point%pos), 0.05)
-
-                    ! point%apply_pos = vadd(point%apply_pos, dir_vec)
-                    point%pos = vadd(point%pos, dir_vec)
-                    end if
-
-                  end block
-               end if
-
-             end block
        end do
-
+       
        end block
     end do
  
@@ -371,7 +361,7 @@ contains
     integer :: num, i
 
     do i = 1, num
-       block
+       block                    
        type (object), pointer :: cur_obj
        integer :: ii
        cur_obj => objects(i)
@@ -395,9 +385,9 @@ contains
               type (vector2_type) :: apply_vec
               real :: fact
 
-              normal_diff = vnormalize (diff)
-              ! fact = (dist - cur%length) / (2.0 * 32.0)
-              fact = (dist - cur%length) / (2.0 * 1.0)
+              normal_diff = vnormalize (diff) !
+              fact = (dist - cur%length) / (2.0 * 32.0)
+              ! fact = (dist - cur%length) / (2.0 * 1.0)
               apply_vec = vscale (normal_diff, fact)
 
               if (cur%p1%pos%x > cur%p2%pos%x) then
@@ -426,6 +416,35 @@ contains
     end do
   end subroutine solve_sticks
  
+  subroutine apply_pos (objects, num)
+    type (object), target, dimension(*) :: objects
+    integer :: num, i
+
+    do i = 1, num
+       block
+       type (object), pointer :: cur_obj
+       type (point_particle), pointer :: cur
+       integer :: ii
+       cur_obj => objects(i)
+
+       if (.not. cur_obj%init) cycle
+
+       do ii = 1, size (cur_obj%particles)
+          cur => cur_obj%particles(ii)
+
+          if (cur%intersect_cnt >= 2) then
+             if (.not. isnan(cur%apply_pos%x) .and. .not. isnan(cur%apply_pos%y)) then
+                cur%pos = vadd(cur%pos, cur%apply_pos)
+             end if
+          end if
+
+          cur%intersect_cnt = 0
+          cur%apply_pos = vector2_type(0.0, 0.0)
+       end do
+       end block
+    end do
+  end subroutine
+ 
   subroutine verlet (objects, num)
     type (object), target, dimension(*) :: objects
     integer :: num, i
@@ -442,8 +461,6 @@ contains
 
        do ii = 1, size (cur_obj%particles)
           cur => cur_obj%particles(ii)
-          cur%pos = vadd(cur%pos, cur%apply_pos)
-          cur%apply_pos = vector2_type(0.0, 0.0)
           cur_pos = cur%pos
           
           cur%pos = vadd(vsub(vscale(cur%pos, 2.0), cur%prev_pos), vscale(G_ACC, (delta ** 2)))
@@ -467,30 +484,30 @@ contains
     ob => eng%obj(eng%cur_obj + 1)
     ob%init = .TRUE.
     allocate(ob%particles(4))
-    allocate(ob%sticks(5))
+    allocate(ob%sticks(6))
 
     init_pos(1) = vadd(pos, vector2_type(width / 2.0, - height / 2.0))
     init_pos(2) = vadd(pos, vector2_type(width / 2.0, height / 2.0))
     init_pos(3) = vadd(pos, vector2_type(-width / 2.0, height / 2.0))
     init_pos(4) = vadd(pos, vector2_type(-width / 2.0, - height / 2.0))
     
-    ob%particles(o + 1) = point_particle(.TRUE., init_pos(1), init_pos(1), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS)
-    ob%particles(o + 2) = point_particle(.TRUE., init_pos(2), init_pos(2), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS)
-    ob%particles(o + 3) = point_particle(.TRUE., init_pos(3), init_pos(3), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS)
-    ob%particles(o + 4) = point_particle(.TRUE., init_pos(4), init_pos(4), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS)
+    ob%particles(o + 1) = point_particle(.TRUE., init_pos(1), init_pos(1), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0)
+    ob%particles(o + 2) = point_particle(.TRUE., init_pos(2), init_pos(2), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0)
+    ob%particles(o + 3) = point_particle(.TRUE., init_pos(3), init_pos(3), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0)
+    ob%particles(o + 4) = point_particle(.TRUE., init_pos(4), init_pos(4), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0)
 
     ob%sticks(s + 1) = stick(.TRUE., ob%particles(o + 1), ob%particles(o + 2), & 
-         vmag(vsub(ob%particles(o + 1)%pos, ob%particles(o + 2)%pos)))
+         vmag(vsub(ob%particles(o + 1)%pos, ob%particles(o + 2)%pos)), .TRUE.)
     ob%sticks(s + 2) = stick(.TRUE., ob%particles(o + 2), ob%particles(o + 3), & 
-         vmag(vsub(ob%particles(o + 2)%pos, ob%particles(o + 3)%pos)))
+         vmag(vsub(ob%particles(o + 2)%pos, ob%particles(o + 3)%pos)), .TRUE.)
     ob%sticks(s + 3) = stick(.TRUE., ob%particles(o + 3), ob%particles(o + 4), & 
-         vmag(vsub(ob%particles(o + 3)%pos, ob%particles(o + 4)%pos)))
+         vmag(vsub(ob%particles(o + 3)%pos, ob%particles(o + 4)%pos)), .TRUE.)
     ob%sticks(s + 4) = stick(.TRUE., ob%particles(o + 4), ob%particles(o + 1), & 
-         vmag(vsub(ob%particles(o + 4)%pos, ob%particles(o + 1)%pos)))
+         vmag(vsub(ob%particles(o + 4)%pos, ob%particles(o + 1)%pos)), .TRUE.)
     ob%sticks(s + 5) = stick(.TRUE., ob%particles(o + 2), ob%particles(o + 4), & 
-         vmag(vsub(ob%particles(o + 2)%pos, ob%particles(o + 4)%pos)))
-    ! ob%sticks(s + 6) = stick(.TRUE., ob%particles(o + 1), ob%particles(o + 3), &
-         ! vmag(vsub(ob%particles(o + 1)%pos, ob%particles(o + 3)%pos)))
+         vmag(vsub(ob%particles(o + 2)%pos, ob%particles(o + 4)%pos)), .FALSE.)
+    ob%sticks(s + 6) = stick(.TRUE., ob%particles(o + 1), ob%particles(o + 3), &
+         vmag(vsub(ob%particles(o + 1)%pos, ob%particles(o + 3)%pos)), .FALSE.)
 
     eng%cur_obj = eng%cur_obj + 1
 
