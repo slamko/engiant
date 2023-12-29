@@ -11,7 +11,7 @@ program main
   type(vector2_type), parameter :: MIDDLE = vector2_type(MIDDLE_X, MIDDLE_Y)
   integer, parameter :: RADIUS = min(SCREEN_HEIGHT, SCREEN_WIDTH) / 2
   integer, parameter :: FPS = 60
-  integer, parameter :: COEFF_ELASTIC = 0.95
+  real, parameter :: COEFF_ELASTIC = 0.95
   real, parameter :: PART_RADIUS = 3.0
 
   type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 10.0)
@@ -26,10 +26,6 @@ program main
      type (vector2_type) :: pos
      type (vector2_type) :: prev_pos
   end type verlet_body
-
-  type, extends (verlet_body) :: circle
-     real :: radius
-  end type circle
 
   type, extends (verlet_body) :: point_particle
      type (vector2_type) :: verlet_velocity
@@ -80,6 +76,7 @@ program main
      print *, "Hello"
   end if
 
+        call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
   do while (.not. window_should_close())
      block
        integer :: i
@@ -87,7 +84,7 @@ program main
 
      call begin_drawing()
      call clear_background(BLACK)
-     ! call draw_circle (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
+     ! call draw_polygon (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
 
      do i = 1, 2
         call constraint(eng%obj, size(eng%obj))
@@ -95,13 +92,19 @@ program main
         call solve_sticks(eng%obj, size(eng%obj))
      end do
 
+     ! call draw_cube_v(vector3_type(100.0, 300.0, 150.0), vector3_type(200.0, 100.0, 150.0), RED)
+
      call verlet(eng%obj, size(eng%obj))
      ! call renderng%obj, size(eng%obj))
      call render_sticks(eng%obj, size(eng%obj))
 
      if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
-        ! call instantiate_rectangle (eng_ptr, get_mouse_position(), 100.0, 100.0)
-        call instantiate_circle (eng_ptr, get_mouse_position(), 20.0, 8)
+        ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 10.0)
+        call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 4)
+     end if
+
+     if (is_mouse_button_released(MOUSE_BUTTON_RIGHT)) then
+        call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 4)
      end if
 
      call end_drawing()
@@ -141,7 +144,7 @@ contains
     type (vector2_type) :: vec
 
     vec%x = v1%x * fact
-    vec%y = v1%y * fact
+    vec%y = v1%y * fact         !
   end function 
 
   function vmag (v1) result(mag)
@@ -259,7 +262,7 @@ contains
     real :: scale, mag
     real :: limit
 
-    limit = 0.6
+    limit = 0.8
 
     if (associated(point)) then
        if (associated(point, line%p1)) then
@@ -279,7 +282,7 @@ contains
 
        scale = (1 / (mag))
       
-       dir_vec = vscale(vec_stick, scale * 3.0)
+       dir_vec = vscale(vec_stick, scale * 1.0)
        
        point%apply_pos = vadd(point%apply_pos, dir_vec)
     end if
@@ -495,6 +498,66 @@ contains
     ob => eng%obj(eng%cur_obj + 1)
     ob%init = .TRUE.
 
+    allocate(ob%particles(sector_num))
+    allocate(ob%sticks(sector_num + sector_num / 2))
+
+    ! ob%particles(1) = point_particle(.TRUE., pos, pos, vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0)
+
+    do i = 1, sector_num
+       block
+         type (vector2_type) :: point
+         real :: x, y
+
+         x = pos%x + radius * cos(2 * PI * real(i - 1) / real(sector_num))
+         y = pos%y + radius * sin(2 * PI * real(i - 1) / real(sector_num))
+         point = vector2_type (x, y)
+         
+         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0)
+       end block
+    end do
+
+    do i = 1, sector_num
+       block
+         real :: length
+         integer :: next_id
+
+         next_id = i + 1
+
+         if (i + 2 > sector_num + 1) then 
+            next_id = 1
+         end if
+         
+         length = vmag(vsub(ob%particles(i)%pos, ob%particles(next_id)%pos))
+
+         ob%sticks(i) = stick(.TRUE., ob%particles(i), ob%particles(next_id), length, .TRUE.)
+     end block
+    end do
+    do i = 1, sector_num / 2
+       block
+         real :: length
+        
+         length = vmag(vsub(ob%particles(i)%pos, ob%particles(sector_num / 2 + i)%pos))
+
+         ob%sticks(sector_num + i) = stick(.TRUE., ob%particles(i), ob%particles(sector_num / 2 + i), length, .FALSE.)
+     end block
+    end do
+
+    eng%cur_obj = eng%cur_obj + 1
+  end subroutine instantiate_circle
+
+  subroutine instantiate_polygon (eng, pos, radius, sector_num)
+    type (engine), pointer :: eng
+    real :: radius
+    integer :: sector_num
+    type (vector2_type), dimension(4) :: init_pos
+    type (vector2_type) :: pos
+    type (object), pointer :: ob
+    integer :: s, o = 0
+    integer :: i
+
+    ob => eng%obj(eng%cur_obj + 1)
+    ob%init = .TRUE.
+
     allocate(ob%particles(sector_num + 1))
     allocate(ob%sticks(sector_num * 2))
 
@@ -533,8 +596,75 @@ contains
     end do
 
     eng%cur_obj = eng%cur_obj + 1
-  end subroutine instantiate_circle
-    
+  end subroutine instantiate_polygon
+
+  subroutine instantiate_full_rectangle (eng, pos, height, width, space)
+    type (engine), pointer :: eng
+    real :: height, width, space
+    integer :: point_num, point_num_x, point_num_y, vertical_sticks, horiz_sticks
+    type (vector2_type) :: pos, start_pos
+    type (object), pointer :: ob
+    integer :: s = 0, o = 0
+    integer :: i
+
+    ob => eng%obj(eng%cur_obj + 1)
+    ob%init = .TRUE.
+
+    point_num_x = int(width / space)
+    point_num_y = int(height / space)
+    point_num = point_num_x * point_num_y
+
+    vertical_sticks = (point_num_y - 1) * point_num_x
+    horiz_sticks = (point_num_x - 1) * point_num_y
+
+    allocate(ob%particles(point_num))
+    allocate(ob%sticks(vertical_sticks + horiz_sticks))
+
+    start_pos = vector2_type(pos%x - width / 2, pos%y - height / 2)
+
+    do i = 1, point_num
+       block
+         type (vector2_type) :: point
+         real :: x, y
+
+         x = start_pos%x + space * modulo(i - 1, point_num_x) 
+         y = start_pos%y + space * ((i - 1) / point_num_x)
+         point = vector2_type (x, y)
+         
+         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0)
+       end block
+    end do
+
+    do i = 1, vertical_sticks
+       block
+         real :: length
+         integer p1_id, p2_id
+         p1_id = i
+         p2_id = i + point_num_x
+        
+         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
+
+         ob%sticks(i) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .TRUE.)
+     end block
+    end do
+
+    do i = 1, point_num
+       block
+         real :: length
+         integer p1_id, p2_id
+         p1_id = i
+         p2_id = i + 1
+
+         if (modulo(i, point_num_x) .eq. 0) cycle
+        
+         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
+
+         ob%sticks(vertical_sticks + i - (i / point_num_x)) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .TRUE.)
+     end block
+     end do
+
+    eng%cur_obj = eng%cur_obj + 1
+  end subroutine instantiate_full_rectangle
 
   subroutine instantiate_rectangle(eng, pos, width, height)
     type (engine), pointer :: eng
