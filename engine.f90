@@ -14,7 +14,7 @@ program main
   integer, parameter :: COEFF_ELASTIC = 1.0
   real, parameter :: PART_RADIUS = 3.0
 
-  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 10.0)
+  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 2.0)
   real :: delta, prev_delta
   integer :: num_alloc
 
@@ -251,11 +251,14 @@ contains
     end if
   end function segment_intersect
 
-  subroutine move_collision (point, line)
+  subroutine move_collision (point, line, col_line)
     type (point_particle), pointer :: point
-    type (stick), intent(in) :: line
+    type (stick), intent(in) :: line, col_line
     type (vector2_type) :: vec_stick, norm, pseudo, targ, dir_vec, targ_vec
     real :: scale, mag
+    real :: limit
+
+    limit = 0.5
 
     if (associated(point)) then
        if (associated(point, line%p1)) then
@@ -264,9 +267,18 @@ contains
           vec_stick = vnormalize(vsub(line%p1%pos, point%pos))
        end if
 
-       scale = 1.5
+       targ = intersect_point(line%p1%pos, line%p2%pos, col_line%p1%pos, col_line%p2%pos)
+
+       targ_vec = vsub(targ, point%pos)
+       mag = vmag(targ_vec)
+
+       if (mag < limit) then
+          mag = limit
+       end if
+
+       scale = (1 / (mag))
       
-       dir_vec = vscale(vec_stick, scale)
+       dir_vec = vscale(vec_stick, scale * 1.0)
        
        point%apply_pos = vadd(point%apply_pos, dir_vec)
     end if
@@ -308,8 +320,8 @@ contains
                      last_inter = ii
                   end if
 
-                  call move_collision(me%sticks(ii)%p1, me%sticks(ii))
-                  call move_collision(me%sticks(ii)%p2, me%sticks(ii))
+                  call move_collision(me%sticks(ii)%p1, me%sticks(ii), cur_obj%sticks(iii))
+                  call move_collision(me%sticks(ii)%p2, me%sticks(ii), cur_obj%sticks(iii))
 
                end if
 
@@ -382,8 +394,8 @@ contains
               real :: fact
 
               normal_diff = vnormalize (diff) !
-              ! fact = (dist - cur%length) / (2.0 * 32.0)
-              fact = (dist - cur%length) / (2.0 * 1.0)
+              fact = (dist - cur%length) / (2.0 * 32.0)
+              ! fact = (dist - cur%length) / (2.0 * 1.0)
               apply_vec = vscale (normal_diff, fact)
 
               if (cur%p1%pos%x > cur%p2%pos%x) then
