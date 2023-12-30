@@ -86,7 +86,7 @@ program main
      call clear_background(BLACK)
      ! call draw_polygon (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
 
-     do i = 1, 2
+     do i = 1, 1
         call constraint(eng%obj, size(eng%obj))
         call apply_pos(eng%obj, size(eng%obj))
         call solve_sticks(eng%obj, size(eng%obj))
@@ -99,8 +99,8 @@ program main
      call render_sticks(eng%obj, size(eng%obj))
 
      if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
-        ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 10.0)
-        call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 4)
+        call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
+        ! call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 4)
      end if
 
      if (is_mouse_button_released(MOUSE_BUTTON_RIGHT)) then
@@ -282,9 +282,11 @@ contains
 
        scale = (1 / (mag))
       
-       dir_vec = vscale(vec_stick, scale * 1.0)
+       dir_vec = vscale(vec_stick, scale * 3.0)
        
        point%apply_pos = vadd(point%apply_pos, dir_vec)
+       ! dir_vec = vscale(vsub(point%prev_pos, point%pos), 3.0)
+       ! point%apply_pos = dir_vec
     end if
   end subroutine move_collision
 
@@ -401,7 +403,7 @@ contains
               normal_diff = vnormalize (diff) !
               ! fact = (dist - cur%length) / (2.0 * 32.0)
               
-              fact = (dist - cur%length) / (2.0 * 1.0)
+              fact = (dist - cur%length) / (2.0 * 0.8)
               apply_vec = vscale (normal_diff, fact)
 
               if (cur%p1%pos%x > cur%p2%pos%x) then
@@ -601,7 +603,7 @@ contains
   subroutine instantiate_full_rectangle (eng, pos, height, width, space)
     type (engine), pointer :: eng
     real :: height, width, space
-    integer :: point_num, point_num_x, point_num_y, vertical_sticks, horiz_sticks
+    integer :: point_num, point_num_x, point_num_y, vertical_sticks, horiz_sticks, diag_sticks
     type (vector2_type) :: pos, start_pos
     type (object), pointer :: ob
     integer :: s = 0, o = 0
@@ -610,15 +612,16 @@ contains
     ob => eng%obj(eng%cur_obj + 1)
     ob%init = .TRUE.
 
-    point_num_x = int(width / space)
-    point_num_y = int(height / space)
+    point_num_x = int(width / space) + 1
+    point_num_y = int(height / space) + 1
     point_num = point_num_x * point_num_y
 
     vertical_sticks = (point_num_y - 1) * point_num_x
     horiz_sticks = (point_num_x - 1) * point_num_y
+    diag_sticks = (point_num_x - 1) * (point_num_y - 1) * 2
 
     allocate(ob%particles(point_num))
-    allocate(ob%sticks(vertical_sticks + horiz_sticks))
+    allocate(ob%sticks(vertical_sticks + horiz_sticks + diag_sticks))
 
     start_pos = vector2_type(pos%x - width / 2, pos%y - height / 2)
 
@@ -660,6 +663,37 @@ contains
          length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
 
          ob%sticks(vertical_sticks + i - (i / point_num_x)) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .TRUE.)
+     end block
+     end do
+
+    do i = 1, (point_num - point_num_x)
+       block
+         real :: length
+         integer p1_id, p2_id
+         p1_id = i
+         p2_id = i + point_num_x + 1
+
+         if (modulo(i, point_num_x) .eq. 0) cycle
+        
+         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
+
+         ob%sticks(vertical_sticks + horiz_sticks + i - (i / point_num_x)) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
+     end block
+
+     end do
+         do i = 1, (point_num - point_num_x)
+       block
+         real :: length
+         integer p1_id, p2_id
+         p1_id = i
+         p2_id = i + point_num_x - 1
+
+         if (modulo(i, point_num_x) .eq. 1) cycle
+        
+         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
+
+         ob%sticks(vertical_sticks + horiz_sticks + (diag_sticks / 2) + i - (((i - 1) / point_num_x) + 1)) = &
+              stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
      end block
      end do
 
