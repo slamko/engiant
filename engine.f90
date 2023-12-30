@@ -14,7 +14,7 @@ program main
   real, parameter :: COEFF_ELASTIC = 0.95
   real, parameter :: PART_RADIUS = 3.0
 
-  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 10.0)
+  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 20.0)
   real :: delta, prev_delta
   integer :: num_alloc
 
@@ -70,13 +70,10 @@ program main
   eng%cur_obj = 0
   eng_ptr => eng
 
-  ! call instantiate_rectangle (eng_ptr, MIDDLE, 100.0, 100.0)
-
-  if (segment_intersect(vector2_type(10.0, 5.0), vector2_type(10.0, 5.0), vector2_type(25.0, 15.0), vector2_type(20.0, 5.0))) then
-     print *, "Hello"
+  if (segment_intersect(vector2_type(10.0, 10.0), vector2_type(10.0, 20.0), vector2_type(5.0, 15.0), vector2_type(15.0, 15.0))) then
+     print *, "OK"
   end if
 
-        call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
   do while (.not. window_should_close())
      block
        integer :: i
@@ -99,7 +96,8 @@ program main
      call render_sticks(eng%obj, size(eng%obj))
 
      if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
-        call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
+        ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
+        call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
         ! call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 4)
      end if
 
@@ -178,6 +176,16 @@ contains
     vel = vscale(vsub(point%pos, prev_pos), 1.0 / (2.0 * avarage_delta))
   end function verlet_velocity
 
+  function verlet_velocity_o2 (point, avarage_delta) result (vel)
+    type (point_particle) :: point
+    type (vector2_type) :: prev_pos
+    real :: avarage_delta
+
+    type (vector2_type) :: vel
+
+    vel = vscale(vsub(point%pos, point%prev_pos), 1.0 / (avarage_delta))
+  end function verlet_velocity_o2
+
   function point_in_segment (x, y, s1p1, s1p2, s2p1, s2p2) result (inter)
     type (vector2_type) :: s1p1, s1p2, s2p1, s2p2
     real :: x, y
@@ -187,12 +195,11 @@ contains
     if ((y < max(s1p1%y, s1p2%y) .and. y > min(s1p1%y, s1p2%y)) .and. (x < max(s2p1%x, s2p2%x) .and. x > min(s2p1%x, s2p2%x))) then
        inter = .TRUE.
     end if
-    ! if (y < max(s2p1%y, s2p2%y) .and. y > min(s2p1%y, s2p2%y)) then
-    ! inter = .TRUE.
-    ! end if
+    
     if ((x < max(s1p1%x, s1p2%x) .and. x > min(s1p1%x, s1p2%x)) .and. (y < max(s2p1%y, s2p2%y) .and. y > min(s2p1%y, s2p2%y))) then
        inter = .TRUE.
     end if
+
   end function point_in_segment
 
   function intersect_point (s1p1, s1p2, s2p1, s2p2) result (inter)
@@ -200,10 +207,20 @@ contains
     real :: a1, b1, a2, b2, x, y
     type (vector2_type) :: inter
 
-    a1 = (s1p2%y - s1p1%y)/(s1p2%x - s1p1%x)
+    if (abs(s1p2%x - s1p1%x) < 0.001) then
+       a1 = 1000.0
+    else 
+       a1 = (s1p2%y - s1p1%y)/(s1p2%x - s1p1%x)
+    end if
+
     b1 = s1p1%y - a1 * s1p1%x
 
-    a2 = (s2p2%y - s2p1%y)/(s2p2%x - s2p1%x)
+    if (abs(s2p2%x - s2p1%x) < 0.001) then
+       a2 = 1000.0
+    else 
+       a2 = (s2p2%y - s2p1%y)/(s2p2%x - s2p1%x)
+    end if
+
     b2 = s2p1%y - a2 * s2p1%x
 
     if (abs(a2 - a1) < 0.001) then
@@ -227,10 +244,20 @@ contains
 
     inter = .FALSE.
 
-    a1 = (s1p2%y - s1p1%y)/(s1p2%x - s1p1%x)
+    if (abs(s1p2%x - s1p1%x) < 0.001) then
+       a1 = 1000.0
+    else 
+       a1 = (s1p2%y - s1p1%y)/(s1p2%x - s1p1%x)
+    end if
+
     b1 = s1p1%y - a1 * s1p1%x
 
-    a2 = (s2p2%y - s2p1%y)/(s2p2%x - s2p1%x)
+    if (abs(s2p2%x - s2p1%x) < 0.001) then
+       a2 = 1000.0
+    else 
+       a2 = (s2p2%y - s2p1%y)/(s2p2%x - s2p1%x)
+    end if
+
     b2 = s2p1%y - a2 * s2p1%x
 
     if (abs(a2 - a1) < 0.001) then
@@ -239,19 +266,10 @@ contains
        x = (b1 - b2) / (a2 - a1)
        y = a1 * x + b1
 
-       if ((y < max(s1p1%y, s1p2%y) .and. y > min(s1p1%y, s1p2%y)) .and. (x < max(s2p1%x, s2p2%x) .and. x > min(s2p1%x, s2p2%x))) then
-          inter = .TRUE.
-       end if
-       ! if (y < max(s2p1%y, s2p2%y) .and. y > min(s2p1%y, s2p2%y)) then
-          ! inter = .TRUE.
-       ! end if
-       if ((x < max(s1p1%x, s1p2%x) .and. x > min(s1p1%x, s1p2%x)) .and. (y < max(s2p1%y, s2p2%y) .and. y > min(s2p1%y, s2p2%y))) then
+       if (point_in_segment(x, y, s1p1, s1p2, s2p1, s2p2)) then
           inter = .TRUE.
        end if
 
-       ! if (x < max(s2p1%x, s2p2%x) .and. x > min(s2p1%x, s2p2%x)) then
-          ! inter = .TRUE.
-       ! end if
     end if
   end function segment_intersect
 
@@ -262,7 +280,7 @@ contains
     real :: scale, mag
     real :: limit
 
-    limit = 0.8
+    limit = 0.6
 
     if (associated(point)) then
        if (associated(point, line%p1)) then
@@ -280,12 +298,12 @@ contains
           mag = limit
        end if
 
-       scale = (1 / (mag))
+       scale = (1 / mag)
       
-       dir_vec = vscale(vec_stick, scale * 3.0)
+       dir_vec = vscale(vec_stick, scale * 0.05 * vmag(verlet_velocity_o2(point, delta)))
        
        point%apply_pos = vadd(point%apply_pos, dir_vec)
-       ! dir_vec = vscale(vsub(point%prev_pos, point%pos), 3.0)
+       ! dir_vec = vscale(vsub(point%prev_pos, point%pos), 1.0 + COEFF_ELASTIC)
        ! point%apply_pos = dir_vec
     end if
   end subroutine move_collision
@@ -312,11 +330,11 @@ contains
             integer :: iii, last_inter
             last_inter = 0
            
-            ! if (.not. me%sticks(ii)%edge_stick) cycle
+            if (.not. me%sticks(ii)%edge_stick) cycle
 
             do iii = 1, size (cur_obj%sticks)
 
-               ! if (.not. cur_obj%sticks(iii)%edge_stick) cycle
+               if (.not. cur_obj%sticks(iii)%edge_stick) cycle
 
                if (segment_intersect(me%sticks(ii)%p1%pos, me%sticks(ii)%p2%pos, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
 
@@ -642,12 +660,18 @@ contains
        block
          real :: length
          integer p1_id, p2_id
+         logical :: board = .FALSE.
+
          p1_id = i
          p2_id = i + point_num_x
         
          length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
 
-         ob%sticks(i) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .TRUE.)
+         if ((modulo(i, point_num_x) .eq. 1) .or. (modulo(i, point_num_x) .eq. 0)) then
+            board = .TRUE.
+         end if
+
+         ob%sticks(i) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, board)
      end block
     end do
 
@@ -655,14 +679,20 @@ contains
        block
          real :: length
          integer p1_id, p2_id
+         logical :: board = .FALSE.
+
          p1_id = i
          p2_id = i + 1
 
          if (modulo(i, point_num_x) .eq. 0) cycle
+
+         if ((i <= point_num_x) .or. (i >= (point_num - point_num_x))) then
+            board = .TRUE.
+         end if
         
          length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
 
-         ob%sticks(vertical_sticks + i - (i / point_num_x)) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .TRUE.)
+         ob%sticks(vertical_sticks + i - (i / point_num_x)) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, board)
      end block
      end do
 
