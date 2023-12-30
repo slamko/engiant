@@ -11,7 +11,7 @@ program main
   type(vector2_type), parameter :: MIDDLE = vector2_type(MIDDLE_X, MIDDLE_Y)
   integer, parameter :: RADIUS = min(SCREEN_HEIGHT, SCREEN_WIDTH) / 2
   integer, parameter :: FPS = 240
-  real, parameter :: COEFF_ELASTIC = 1.0
+  real, parameter :: COEFF_ELASTIC = 0.85
   real, parameter :: PART_RADIUS = 3.0
 
   type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 2.0)
@@ -312,7 +312,7 @@ contains
 
        block
 
-         type (vector2_type) :: rnorm, intersect, pseudo_vel
+         type (vector2_type) :: rnorm, intersect, pseudo_vel, intermid, intermid_vec, new_prev_pos
          
        vec_stick = vnormalize(vsub(col_line%p2%pos, col_line%p1%pos))
        norm%x = vec_stick%y
@@ -320,10 +320,18 @@ contains
        npoint = vadd(point%pos, norm)
        intersect = intersect_point(col_line%p1%pos, col_line%p2%pos, point%pos, npoint)
        targ_vec = vsub(intersect, point%pos)
+
        rnorm = vnormalize(vsub(intersect, point%pos))
-       
+       rnorm%x = -rnorm%x
+       rnorm%y = -rnorm%y
+
        pseudo_vel = vsub(point%pos, point%prev_pos)
-       targ = vsub(pseudo_vel, vscale(rnorm, 2 * vdot(pseudo_vel, rnorm)))
+       intermid = vadd(point%pos, pseudo_vel)
+       intermid_vec = vsub(point%pos, intermid)
+
+
+       targ = vscale(vsub(intermid_vec, vscale(rnorm, 2 * vdot(intermid_vec, rnorm))), COEFF_ELASTIC)
+       new_prev_pos = vadd(point%pos, targ)
 
        mag = vmag(targ_vec)
 
@@ -333,12 +341,12 @@ contains
           scale = (1 / (mag ** 2))
        end if
 
-       dir_vec = vscale(targ, scale * (COEFF_ELASTIC))
-       
        if (point%intersect_mag > mag) then
-          point%apply_pos = vscale(dir_vec, (limit ** 2))
+          point%apply_pos = vsub(new_prev_pos, point%prev_pos)
+          point%intersect_mag = mag
        end if
        end block
+
        ! dir_vec = vscale(vsub(point%prev_pos, point%pos), 1.0 + COEFF_ELASTIC)
        ! point%apply_pos = dir_vec
 
@@ -456,9 +464,9 @@ contains
               real :: fact
 
               normal_diff = vnormalize (diff) !
-              ! fact = (dist - cur%length) / (2.0 * 32.0)
+              ! fact = (dist - cur%length) / (2.0 * 16.0)
               
-              fact = (dist - cur%length) / (2.0 * 0.8)
+              fact = (dist - cur%length) / (2.0 * 1.0)
               apply_vec = vscale (normal_diff, fact)
 
               if (cur%p1%pos%x > cur%p2%pos%x) then
@@ -505,7 +513,7 @@ contains
 
           if (cur%intersect_cnt >= 2) then
              if (.not. isnan(cur%apply_pos%x) .and. .not. isnan(cur%apply_pos%y)) then
-                cur%pos = vadd(cur%pos, cur%apply_pos)
+                cur%prev_pos = vadd(cur%prev_pos, cur%apply_pos)
              end if
           end if
 
