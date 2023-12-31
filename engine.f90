@@ -85,7 +85,7 @@ program main
      call clear_background(BLACK)
      ! call draw_polygon (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
 
-     do i = 1, 3
+     do i = 1, 5
         ! call solve_sticks(eng%obj, size(eng%obj))
         call constraint(eng%obj, size(eng%obj))
         call apply_pos(eng%obj, size(eng%obj))
@@ -349,7 +349,7 @@ contains
                inv_vel%x = -rnorm%x
                inv_vel%y = -rnorm%y
 
-               addit = vadd(point%pos, vscale(rnorm, COEFF_ELASTIC))
+               addit = vadd(point%pos, vscale(rnorm, 2*COEFF_ELASTIC))
 
                point%apply_pos = vsub(addit, point%prev_pos)
              end block
@@ -478,7 +478,7 @@ contains
               real :: fact
 
               normal_diff = vnormalize (diff) !
-              ! fact = (dist - cur%length) / (2.0 * 16.0)
+              ! fact = (dist - cur%length) / (2.0 * 8.0)
               
               fact = (dist - cur%length) / (2.0 * 1.0)
               apply_vec = vscale (normal_diff, fact)
