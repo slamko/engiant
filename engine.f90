@@ -14,7 +14,7 @@ program main
   real, parameter :: COEFF_ELASTIC = 0.85
   real, parameter :: PART_RADIUS = 3.0
 
-  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 2.0)
+  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 16.0)
   real :: delta, prev_delta
   integer :: num_alloc
 
@@ -85,7 +85,8 @@ program main
      call clear_background(BLACK)
      ! call draw_polygon (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
 
-     do i = 1, 1
+     do i = 1, 3
+        ! call solve_sticks(eng%obj, size(eng%obj))
         call constraint(eng%obj, size(eng%obj))
         call apply_pos(eng%obj, size(eng%obj))
         call solve_sticks(eng%obj, size(eng%obj))
@@ -326,9 +327,9 @@ contains
        rnorm%y = -rnorm%y
 
        pseudo_vel = vsub(point%pos, point%prev_pos)
+
        intermid = vadd(point%pos, pseudo_vel)
        intermid_vec = vsub(point%pos, intermid)
-
 
        targ = vscale(vsub(intermid_vec, vscale(rnorm, 2 * vdot(intermid_vec, rnorm))), COEFF_ELASTIC)
        new_prev_pos = vadd(point%pos, targ)
@@ -342,7 +343,20 @@ contains
        end if
 
        if (point%intersect_mag > mag) then
-          point%apply_pos = vsub(new_prev_pos, point%prev_pos)
+          ! if (vdot(pseudo_vel, rnorm) < 0) then
+             block
+               type (vector2_type) :: inv_vel, addit
+               inv_vel%x = -rnorm%x
+               inv_vel%y = -rnorm%y
+
+               addit = vadd(point%pos, vscale(rnorm, COEFF_ELASTIC))
+
+               point%apply_pos = vsub(addit, point%prev_pos)
+             end block
+          ! else
+             ! point%apply_pos = vsub(new_prev_pos, point%prev_pos)
+          ! end if
+
           point%intersect_mag = mag
        end if
        end block
