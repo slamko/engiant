@@ -14,7 +14,7 @@ program main
   real, parameter :: COEFF_ELASTIC = 0.85
   real, parameter :: PART_RADIUS = 3.0
 
-  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 16.0)
+  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 8.0)
   real :: delta, prev_delta
   integer :: num_alloc
 
@@ -30,6 +30,7 @@ program main
   type, extends (verlet_body) :: point_particle
      type (vector2_type) :: verlet_velocity
      type (vector2_type) :: apply_pos
+     type (vector2_type) :: apply_prev_pos
      real :: radius
      integer :: intersect_cnt
      real :: intersect_mag
@@ -85,10 +86,14 @@ program main
      call clear_background(BLACK)
      ! call draw_polygon (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
 
-     do i = 1, 5
+     do i = 1, 1
         ! call solve_sticks(eng%obj, size(eng%obj))
-        call constraint(eng%obj, size(eng%obj))
-        call apply_pos(eng%obj, size(eng%obj))
+     end do
+
+     call constraint(eng%obj, size(eng%obj))
+     call apply_pos(eng%obj, size(eng%obj))
+
+      do i = 1, 3
         call solve_sticks(eng%obj, size(eng%obj))
      end do
 
@@ -101,7 +106,7 @@ program main
      if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
         call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
         ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
-        ! call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 4)
+        ! call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 8)
      end if
 
      if (is_mouse_button_released(MOUSE_BUTTON_RIGHT)) then
@@ -281,37 +286,8 @@ contains
     real :: scale, mag, speed_fact
     real :: limit
 
-    limit = 0.6
-
     if (associated(point)) then
-!!$       if (associated(point, line%p1)) then
-!!$          vec_stick = vnormalize(vsub(line%p2%pos, point%pos))
-!!$       else
-!!$          vec_stick = vnormalize(vsub(line%p1%pos, point%pos))
-!!$       end if
-!!$
-!!$       targ = intersect_point(line%p1%pos, line%p2%pos, col_line%p1%pos, col_line%p2%pos)
-!!$
-!!$       targ_vec = vsub(targ, point%pos)
-!!$       mag = vmag(targ_vec)
-!!$
-!!$       if (mag < limit) then
-!!$          mag = limit
-!!$       end if
-!!$
-!!$       scale = (1 / mag)
-!!$
-!!$       speed_fact = sqrt(vmag(vsub(point%pos, point%prev_pos))) * 1.0
-!!$       dir_vec = vscale(vec_stick, scale * speed_fact * 1.5 * (1.0 + COEFF_ELASTIC))
-!!$       
-!!$       point%apply_pos = vadd(point%apply_pos, dir_vec)
-!!$
-       ! dir_vec = vscale(vec_stick, scale * 0.05 * vmag(verlet_velocity_o2(point, delta)))
-       
-       ! dir_vec = vscale(vsub(point%prev_pos, point%pos), 1.0 + COEFF_ELASTIC)
-       ! point%apply_pos = vadd(point%apply_pos, dir_vec)
-
-       block
+      block
 
          type (vector2_type) :: rnorm, intersect, pseudo_vel, intermid, intermid_vec, new_prev_pos
          
@@ -336,26 +312,26 @@ contains
 
        mag = vmag(targ_vec)
 
-       if (mag < limit) then
-          scale = (1 / (limit ** 2))
-       else
-          scale = (1 / (mag ** 2))
-       end if
-
        if (point%intersect_mag > mag) then
-          if (vdot(pseudo_vel, rnorm) < 0) then
-             block
-               type (vector2_type) :: inv_vel, addit
-               inv_vel%x = -rnorm%x
-               inv_vel%y = -rnorm%y
-
-               addit = vadd(point%pos, vscale(rnorm, 2*COEFF_ELASTIC))
-
-               point%apply_pos = vsub(addit, point%prev_pos)
-             end block
-          else
-             point%apply_pos = vsub(new_prev_pos, point%prev_pos)
-          end if
+!!$          if (vdot(pseudo_vel, rnorm) < 0) then
+!!$             block
+!!$               type (vector2_type) :: inv_vel, addit
+!!$               inv_vel%x = -rnorm%x
+!!$               inv_vel%y = -rnorm%y
+!!$
+!!$               addit = vadd(point%pos, vscale(rnorm, 2*COEFF_ELASTIC))
+!!$
+!!$               point%apply_pos = vsub(addit, point%prev_pos)
+!!$             end block
+!!$          else
+!!$             point%apply_pos = vsub(new_prev_pos, point%prev_pos)
+!!$          end if
+!!$
+          
+          new_prev_pos = vadd(intersect, vscale(rnorm, COEFF_ELASTIC * vmag(pseudo_vel) / 2))
+          ! new_prev_pos = vadd(intersect, vscale(rnorm, COEFF_ELASTIC))
+          point%apply_pos = vsub(intersect, point%pos) 
+          point%apply_prev_pos = vsub(new_prev_pos, point%prev_pos) 
 
           point%intersect_mag = mag
        end if
@@ -527,7 +503,8 @@ contains
 
           if (cur%intersect_cnt >= 2) then
              if (.not. isnan(cur%apply_pos%x) .and. .not. isnan(cur%apply_pos%y)) then
-                cur%prev_pos = vadd(cur%prev_pos, cur%apply_pos)
+                cur%pos = vadd(cur%pos, cur%apply_pos)
+                cur%prev_pos = vadd(cur%prev_pos, cur%apply_prev_pos) !
              end if
           end if
 
@@ -592,7 +569,7 @@ contains
          y = pos%y + radius * sin(2 * PI * real(i - 1) / real(sector_num))
          point = vector2_type (x, y)
          
-         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
+         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
        end block
     end do
 
@@ -641,7 +618,7 @@ contains
     allocate(ob%particles(sector_num + 1))
     allocate(ob%sticks(sector_num * 2))
 
-    ob%particles(1) = point_particle(.TRUE., pos, pos, vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
+    ob%particles(1) = point_particle(.TRUE., pos, pos, vector2_type(0, 0), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
 
     do i = 2, sector_num + 1
        block
@@ -652,7 +629,7 @@ contains
          y = pos%y + radius * sin(2 * PI * real(i - 1) / real(sector_num))
          point = vector2_type (x, y)
          
-         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
+         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
        end block
     end do
 
@@ -712,7 +689,7 @@ contains
          y = start_pos%y + space * ((i - 1) / point_num_x)
          point = vector2_type (x, y)
          
-         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
+         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
        end block
     end do
 
@@ -810,10 +787,10 @@ contains
     init_pos(3) = vadd(pos, vector2_type(-width / 2.0, height / 2.0))
     init_pos(4) = vadd(pos, vector2_type(-width / 2.0, - height / 2.0))
     
-    ob%particles(o + 1) = point_particle(.TRUE., init_pos(1), init_pos(1), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
-    ob%particles(o + 2) = point_particle(.TRUE., init_pos(2), init_pos(2), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
-    ob%particles(o + 3) = point_particle(.TRUE., init_pos(3), init_pos(3), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
-    ob%particles(o + 4) = point_particle(.TRUE., init_pos(4), init_pos(4), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
+    ob%particles(o + 1) = point_particle(.TRUE., init_pos(1), init_pos(1), vector2_type(0, 0), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0) !
+    ob%particles(o + 2) = point_particle(.TRUE., init_pos(2), init_pos(2), vector2_type(0, 0), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
+    ob%particles(o + 3) = point_particle(.TRUE., init_pos(3), init_pos(3), vector2_type(0, 0), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
+    ob%particles(o + 4) = point_particle(.TRUE., init_pos(4), init_pos(4), vector2_type(0, 0), vector2_type(0, 0), vector2_type(0, 0), PART_RADIUS, 0, 1000.0)
 
     ob%sticks(s + 1) = stick(.TRUE., ob%particles(o + 1), ob%particles(o + 2), & 
          vmag(vsub(ob%particles(o + 1)%pos, ob%particles(o + 2)%pos)), .TRUE.)
