@@ -317,7 +317,7 @@ contains
          
        vec_stick = vnormalize(vsub(col_line%p2%pos, col_line%p1%pos))
        norm%x = vec_stick%y
-       norm%y = vec_stick%x
+       norm%y = -vec_stick%x
        npoint = vadd(point%pos, norm)
        intersect = intersect_point(col_line%p1%pos, col_line%p2%pos, point%pos, npoint)
        targ_vec = vsub(intersect, point%pos)
@@ -343,7 +343,7 @@ contains
        end if
 
        if (point%intersect_mag > mag) then
-          ! if (vdot(pseudo_vel, rnorm) < 0) then
+          if (vdot(pseudo_vel, rnorm) < 0) then
              block
                type (vector2_type) :: inv_vel, addit
                inv_vel%x = -rnorm%x
@@ -353,9 +353,9 @@ contains
 
                point%apply_pos = vsub(addit, point%prev_pos)
              end block
-          ! else
-             ! point%apply_pos = vsub(new_prev_pos, point%prev_pos)
-          ! end if
+          else
+             point%apply_pos = vsub(new_prev_pos, point%prev_pos)
+          end if
 
           point%intersect_mag = mag
        end if
