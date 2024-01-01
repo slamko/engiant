@@ -68,7 +68,7 @@ contains
                     p = 100.
 
                     force_fact = k * (dist - cur%length) / (2.0)
-                    pos_fact = (dist - cur%length) / (2.0 * k * p)
+                    pos_fact = (dist - cur%length) / (2.0 * p)
 
                     force_vec = vscale (normal_diff, force_fact)
                     pos_vec = vscale (normal_diff, pos_fact)

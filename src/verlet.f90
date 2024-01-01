@@ -72,7 +72,7 @@ program main
      if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
         call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
         ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
-        ! call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 8)
+        ! call instantiate_polygon (eng_ptr, get_mouse_position(), 30.0, 8)
      end if
 
      if (is_mouse_button_released(MOUSE_BUTTON_RIGHT)) then
@@ -276,15 +276,15 @@ contains
                 offset1 = vscale(inv_middle, d2 / len)
                 offset2 = vscale(inv_middle, d1 / len)
 
-                st%p1%pos = vadd(st%p1%pos, offset1)
-                st%p2%pos = vadd(st%p2%pos, offset2)
-
-                if(vdot(edge_vel, inv_norm) < 0) then
-                   inv_edge_vel = edge_vel
+                if(vdot(vsub(st%p1%pos, st%p1%prev_pos), inv_norm) >= 0) then
+                   st%p1%pos = vadd(st%p1%pos, offset1)
+                   ! st%p1%prev_pos = vadd(st%p1%pos, vscale(edge_target, d1 / len))
                 end if
 
-                st%p1%prev_pos = vadd(st%p1%pos, vscale(edge_target, d1 / len))
-                st%p2%prev_pos = vadd(st%p2%pos, vscale(edge_target, d2 / len))
+                if(vdot(vsub(st%p2%pos, st%p2%prev_pos), inv_norm) >= 0) then
+                   st%p2%pos = vadd(st%p2%pos, offset2)
+                   ! st%p2%prev_pos = vadd(st%p2%pos, vscale(edge_target, d2 / len))
+                end if
 
                 point%prev_pos = vadd(point%pos, targ)
 
