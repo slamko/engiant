@@ -25,6 +25,7 @@ program main
   type, extends (render_body) :: verlet_body
      type (vector2_type) :: pos
      type (vector2_type) :: prev_pos
+     type (vector2_type) :: force
   end type verlet_body
 
   type, extends (verlet_body) :: point_particle
