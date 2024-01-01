@@ -149,4 +149,34 @@ contains
     end if
   end function segment_intersect
 
+  function segment_norm(s1p1, s1p2) result(norm)
+    type (vector2_type) :: s1p1, s1p2, norm, vec
+
+    vec = vnormalize(vsub(s1p2, s1p1))
+    norm%x = vec%y
+    norm%y = -vec%x
+    
+  end function segment_norm
+
+  function point_segment_intersect (point, s1p1, s1p2) result (intersect)
+    type (vector2_type) :: s1p1, s1p2, point, norm, test_point, intersect
+
+    norm = segment_norm(s1p1, s1p2)
+
+    test_point = vadd(point, norm)
+
+    intersect = intersect_point(point, test_point, s1p1, s1p2)
+
+  end function point_segment_intersect
+
+  function point_segment_distance (point, s1p1, s1p2) result (dist)
+    type (vector2_type) :: s1p1, s1p2, point, intersect
+    real :: dist
+
+    intersect = point_segment_intersect(point, s1p1, s1p2)
+
+    dist = vmag(vsub(intersect, point))
+
+  end function point_segment_distance
+
 end module math

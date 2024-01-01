@@ -5,10 +5,9 @@ module physics
   implicit none
 
   real, parameter :: MASS = 1.0
-  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 8.0)
+  type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 10.0)
 
 contains
-
 
   subroutine apply_gravity (objects, num)
      type (object), target, dimension(*) :: objects

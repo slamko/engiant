@@ -106,87 +106,173 @@ contains
     vel = vscale(vsub(point%pos, point%prev_pos), 1.0 / (avarage_delta))
   end function verlet_velocity_o2
 
-  subroutine move_collision (point, line, col_line)
-    type (point_particle), pointer :: point
-    type (stick), intent(in) :: line, col_line
-    type (vector2_type) :: vec_stick, norm, pseudo, targ, dir_vec, targ_vec, npoint
-    real :: scale, mag, speed_fact
-    real :: limit
+  function get_max_point (obj) result(max_point)
+    type (object), pointer :: obj
+    type (vector2_type) :: max_point
+    real :: max_x, max_y
+    integer :: i
 
-    if (associated(point)) then
-      block
+    max_x = 0.0
+    max_y = 0.0
 
-         type (vector2_type) :: rnorm, intersect, pseudo_vel, intermid, intermid_vec, new_prev_pos, inv_norm, outside_point
-         real :: d1, d2
-         
-       vec_stick = vnormalize(vsub(col_line%p2%pos, col_line%p1%pos))
-       norm%x = vec_stick%y
-       norm%y = -vec_stick%x
-       npoint = vadd(point%pos, norm)
-       intersect = intersect_point(col_line%p1%pos, col_line%p2%pos, point%pos, npoint)
-       targ_vec = vsub(intersect, point%pos)
+    do i = 1, size(obj%particles)
+       block
+         type (vector2_type) :: pos
 
-       rnorm = vnormalize(vsub(intersect, point%pos))
-       rnorm%x = -rnorm%x
-       rnorm%y = -rnorm%y
+         pos = obj%particles(i)%pos
 
-       inv_norm = vinv(rnorm)
-       outside_point = vadd(intersect, inv_norm)
+         if (pos%x > max_x) then
+            max_x = pos%x
+         end if
 
-       ! if (.not. point_in_segment(intersect%x, intersect%y, point%pos, outside_point, col_line%p1%pos, col_line%p2%pos)) return
-       
-       d1 = vmag(vsub(col_line%p1%pos, intersect))
-       d2 = vmag(vsub(col_line%p2%pos, intersect))
+         if (pos%y > max_y) then
+            max_y = pos%y
+         end if
 
-       pseudo_vel = vsub(point%pos, point%prev_pos)
+       end block
+    end do
 
-       intermid = vadd(point%pos, pseudo_vel)
-       intermid_vec = vsub(point%pos, intermid)
+    max_point = vector2_type(max_x, max_y)
 
-       targ = vscale(vsub(intermid_vec, vscale(rnorm, 2 * vdot(intermid_vec, rnorm))), COEFF_ELASTIC)
-       new_prev_pos = vadd(point%pos, targ)
+  end function get_max_point
 
-       mag = vmag(targ_vec)
-      end block
+  function get_min_point (obj) result(min_point)
+    type (object), pointer :: obj
+    type (vector2_type) :: min_point
+    real :: min_x, min_y
+    integer :: i
 
-       ! dir_vec = vscale(vsub(point%prev_pos, point%pos), 1.0 + COEFF_ELASTIC)
-       ! point%apply_pos = dir_vec
+    min_x = 10000.0
+    min_y = 10000.0
 
-    end if
-  end subroutine move_collision
+    do i = 1, size(obj%particles)
+       block
+         type (vector2_type) :: pos
+
+         pos = obj%particles(i)%pos
+
+         if (pos%x < min_x) then
+            min_x = pos%x
+         end if
+
+         if (pos%y < min_y) then
+            min_y = pos%y
+         end if
+
+       end block
+    end do
+
+    min_point = vector2_type(min_x, min_y)
+
+  end function get_min_point
+
+  function get_outside_point (obj) result(outside_point)
+    type (object), pointer :: obj
+    type (vector2_type) :: outside_point
+    
+    outside_point = vadd(get_max_point(obj), vector2_type(133.0, 56.0))
+
+  end function get_outside_point
 
   subroutine collision (me, objects, num)
     type (object), pointer :: me
     type (object), target, dimension(*) :: objects
     integer :: num, i
-    integer :: s1_cnt, s2_cnt
-    type (stick), pointer :: s11, s12
-    type (stick), pointer :: s21, s22
 
     do i = 1, num
        block
        type (object), pointer :: cur_obj
        type (point_particle), pointer :: cur
+       type (vector2_type) :: outside_point, double_outside, inv_outside, min_point, max_point
        integer :: ii
        cur_obj => objects(i)
 
        if (.not. cur_obj%init .or. associated(cur_obj, me)) cycle
 
-       do ii = 1, size (me%sticks)
+       outside_point = get_outside_point(cur_obj)
+       double_outside = vadd(outside_point, vector2_type(100.0, 0.0))
+       inv_outside = vscale(outside_point, 1.5)
+
+       min_point = get_min_point (cur_obj)
+       max_point = get_max_point (cur_obj)
+
+       do ii = 1, size (me%particles)
           block
-            integer :: iii, last_inter
-            last_inter = 0
-           
-            if (.not. me%sticks(ii)%edge_stick) cycle
+            integer :: iii = 0, intersect_cnt = 0, nearest = 0
+            real :: nearest_dist = 3e+8
+            cur => me%particles(ii)
+
+            nearest_dist = 3e+8
+            iii = 0
+            nearest = 0
+            intersect_cnt = 0
 
             do iii = 1, size (cur_obj%sticks)
+               block
+                 real :: dist
 
                if (.not. cur_obj%sticks(iii)%edge_stick) cycle
 
-               if (segment_intersect(me%sticks(ii)%p1%pos, me%sticks(ii)%p2%pos, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
+               if (segment_intersect(me%particles(ii)%pos, outside_point, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
+                     intersect_cnt = intersect_cnt + 1
+                  ! if (segment_intersect(me%particles(ii)%pos, double_outside, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
+                     ! if (segment_intersect(me%particles(ii)%pos, inv_outside, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
+                  ! end if
                end if
 
+
+               dist = point_segment_distance(me%particles(ii)%pos, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)
+
+               if (dist < nearest_dist) then
+                  nearest_dist = dist
+                  nearest = iii
+               end if
+
+             end block
             end do
+
+            if (modulo(intersect_cnt, 2) .eq. 1) then
+
+               if (cur%pos%x >= min_point%x .and. cur%pos%y >= min_point%y .and. cur%pos%x <= max_point%x .and. cur%pos%y <= max_point%y) then
+              block 
+                type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev
+                type (vector2_type) :: intersect, pseudo_vel, rnorm
+                type (stick), pointer :: st
+                type (point_particle), pointer :: point
+                real :: d1, d2
+
+                point => me%particles(ii)
+                st => cur_obj%sticks(nearest)
+
+                print *, "Detected!"
+                print *, outside_point
+                print *, point%pos
+                print *, st%p1%pos
+                print *, st%p2%pos
+                print *, "Detected!"
+
+                ! call draw_line(int(point%pos%x), int(point%pos%y), int(outside_point%x), int(outside_point%y), BLUE)
+
+                intersect = point_segment_intersect(me%particles(ii)%pos, st%p1%pos, st%p2%pos)
+                d1 = vmag(vsub(st%p1%pos, intersect))
+                d2 = vmag(vsub(st%p2%pos, intersect))
+                
+                pseudo_vel = vsub(point%pos, point%prev_pos)
+                
+                rnorm = vnormalize(vsub(intersect, point%pos))
+                rnorm = vinv(rnorm)
+
+                point%pos = intersect
+                intermid = vadd(point%pos, pseudo_vel)
+                intermid_vec = vsub(point%pos, intermid)
+
+                targ = vscale(vsub(intermid_vec, vscale(rnorm, 2 * vdot(intermid_vec, rnorm))), COEFF_ELASTIC)
+
+                point%prev_pos = vadd(point%pos, targ)
+
+              end block
+              end if
+            end if
 
           end block
 
@@ -210,7 +296,7 @@ contains
 
        if (.not. cur_obj%init) cycle
 
-       ! call collision (cur_obj, objects, num)
+       call collision (cur_obj, objects, num)
        
        do ii = 1, size (cur_obj%particles)
           cur => cur_obj%particles(ii)
