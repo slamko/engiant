@@ -235,38 +235,56 @@ contains
 
                if (cur%pos%x >= min_point%x .and. cur%pos%y >= min_point%y .and. cur%pos%x <= max_point%x .and. cur%pos%y <= max_point%y) then
               block 
-                type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev
-                type (vector2_type) :: intersect, pseudo_vel, rnorm
+                type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev, edge_target
+                type (vector2_type) :: intersect, pseudo_vel, rnorm, edge_vel, inv_edge_vel, inv_norm, middle_pos
+                type (vector2_type) :: offset1, offset2, middle_vec, inv_middle, inv_edge_targ
                 type (stick), pointer :: st
                 type (point_particle), pointer :: point
-                real :: d1, d2
+                real :: d1, d2, len, middle_mag
 
                 point => me%particles(ii)
                 st => cur_obj%sticks(nearest)
 
-                print *, "Detected!"
-                print *, outside_point
-                print *, point%pos
-                print *, st%p1%pos
-                print *, st%p2%pos
-                print *, "Detected!"
-
-                ! call draw_line(int(point%pos%x), int(point%pos%y), int(outside_point%x), int(outside_point%y), BLUE)
-
                 intersect = point_segment_intersect(me%particles(ii)%pos, st%p1%pos, st%p2%pos)
                 d1 = vmag(vsub(st%p1%pos, intersect))
                 d2 = vmag(vsub(st%p2%pos, intersect))
+                len = vmag(vsub(st%p2%pos, st%p1%pos))
                 
                 pseudo_vel = vsub(point%pos, point%prev_pos)
                 
                 rnorm = vnormalize(vsub(intersect, point%pos))
+                inv_norm = rnorm
                 rnorm = vinv(rnorm)
 
-                point%pos = intersect
+                middle_vec = vscale(vsub(intersect, point%pos), 0.5)
+                inv_middle = vinv(middle_vec)
+                middle_mag = vmag(middle_vec)
+                middle_pos = vadd(middle_vec, point%pos)
+
+                point%pos = middle_pos
                 intermid = vadd(point%pos, pseudo_vel)
                 intermid_vec = vsub(point%pos, intermid)
 
+                edge_vel = vadd(vsub(st%p1%pos, st%p1%prev_pos), vsub(st%p2%pos, st%p2%prev_pos))
+                inv_edge_vel = vinv(edge_vel)
+
                 targ = vscale(vsub(intermid_vec, vscale(rnorm, 2 * vdot(intermid_vec, rnorm))), COEFF_ELASTIC)
+
+                edge_target = vscale(vsub(inv_edge_vel, vscale(inv_norm, 2 * vdot(inv_edge_vel, inv_norm))), COEFF_ELASTIC)
+                inv_edge_targ = vnormalize(vinv(edge_target))
+
+                offset1 = vscale(inv_middle, d2 / len)
+                offset2 = vscale(inv_middle, d1 / len)
+
+                st%p1%pos = vadd(st%p1%pos, offset1)
+                st%p2%pos = vadd(st%p2%pos, offset2)
+
+                if(vdot(edge_vel, inv_norm) < 0) then
+                   inv_edge_vel = edge_vel
+                end if
+
+                st%p1%prev_pos = vadd(st%p1%pos, vscale(edge_target, d1 / len))
+                st%p2%prev_pos = vadd(st%p2%pos, vscale(edge_target, d2 / len))
 
                 point%prev_pos = vadd(point%pos, targ)
 
