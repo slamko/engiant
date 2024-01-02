@@ -27,6 +27,7 @@ module types
   type, extends (verlet_body) :: point_particle
      type (vector2_type) :: verlet_velocity
      real :: radius
+     logical :: response_applied
   end type point_particle
 
   type, extends (render_body) :: stick

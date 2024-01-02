@@ -34,7 +34,7 @@ contains
          y = pos%y + radius * sin(2 * PI * real(i - 1) / real(sector_num))
          point = vector2_type (x, y)
          
-         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS)
+         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS, .FALSE.)
          ob%match_shape(i) = geom_point(vsub(point, pos))
        end block
     end do
@@ -101,7 +101,7 @@ contains
          y = start_pos%y + space * ((ii - 1) / point_num_x)
          point = vector2_type (x, y)
          
-         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS)
+         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS, .FALSE.)
          ob%match_shape(i) = geom_point(vsub(point, pos))
 
          i = i + 1
@@ -228,7 +228,7 @@ contains
          y = start_pos%y + space * ((i - 1) / point_num_x)
          point = vector2_type (x, y)
          
-         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS)
+         ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS, .FALSE.)
          ob%match_shape(i) = geom_point(vsub(point, pos))
        end block
     end do

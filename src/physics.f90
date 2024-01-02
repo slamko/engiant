@@ -209,7 +209,8 @@ contains
 
   end function get_outside_point
 
-  subroutine response (point, st)
+  subroutine impulse_response (point, st)
+!!$    
     type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev, edge_target
     type (vector2_type) :: intersect, pseudo_vel, rnorm, edge_vel, inv_edge_vel, inv_norm, middle_pos
     type (vector2_type) :: offset1, offset2, middle_vec, inv_middle, inv_edge_targ
@@ -263,18 +264,78 @@ contains
     offset1 = vscale(inv_middle, d2 / len)
     offset2 = vscale(inv_middle, d1 / len)
     
-    ! if (vdot(vsub(st%p1%pos, st%p1%prev_pos), inv_norm) >= 0) then
-    ! st%p1%pos = vadd(st%p1%pos, offset1)
-    ! st%p1%prev_pos = vadd(st%p1%pos, vscale(vinv(new_st_vel), d2 / len))
-    ! end if
+    if (.not. st%p1%response_applied) then
+       st%p1%pos = vadd(st%p1%pos, offset1)
+       st%p1%prev_pos = vadd(st%p1%pos, vscale(vinv(new_st_vel), d2 / len))
+    end if
     
-    ! if (vdot(vsub(st%p2%pos, st%p2%prev_pos), inv_norm) >= 0) then
-    ! st%p2%pos = vadd(st%p2%pos, offset2)
-    ! st%p2%prev_pos = vadd(st%p2%pos, vscale(vinv(new_st_vel), d1 / len))
-    ! end if
+    if (.not. st%p2%response_applied) then
+       st%p2%pos = vadd(st%p2%pos, offset2)
+       st%p2%prev_pos = vadd(st%p2%pos, vscale(vinv(new_st_vel), d1 / len))
+    end if
     
     point%prev_pos = vadd(point%pos, vinv(new_vel))
+    point%response_applied = .TRUE.
+  end subroutine impulse_response
     
+!!$
+!!$
+
+  subroutine response (point, st)
+    type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev, edge_target
+    type (vector2_type) :: intersect, pseudo_vel, rnorm, edge_vel, inv_edge_vel, inv_norm, middle_pos
+    type (vector2_type) :: offset1, offset2, middle_vec, inv_middle, inv_edge_targ
+    type (stick), pointer :: st
+    type (point_particle), pointer :: point
+    real :: d1, d2, len, middle_mag
+    
+    intersect = point_segment_intersect(point%pos, st%p1%pos, st%p2%pos)
+    d1 = vmag(vsub(st%p1%pos, intersect))
+    d2 = vmag(vsub(st%p2%pos, intersect))
+    len = vmag(vsub(st%p2%pos, st%p1%pos))
+    
+    pseudo_vel = vsub(point%pos, point%prev_pos)
+    
+    rnorm = vnormalize(vsub(intersect, point%pos))
+    inv_norm = rnorm
+    rnorm = vinv(rnorm)
+    
+    middle_vec = vscale(vsub(intersect, point%pos), 0.5)
+    inv_middle = vinv(middle_vec)
+    middle_mag = vmag(middle_vec)
+    middle_pos = vadd(middle_vec, point%pos)
+    
+    point%pos = middle_pos
+    intermid = vadd(point%pos, pseudo_vel)
+    intermid_vec = vsub(point%pos, intermid)
+    
+    edge_vel = vadd(vsub(st%p1%pos, st%p1%prev_pos), vsub(st%p2%pos, st%p2%prev_pos))
+    inv_edge_vel = vinv(edge_vel)
+    
+    targ = vscale(vsub(intermid_vec, vscale(rnorm, 2 * vdot(intermid_vec, rnorm))), COEFF_ELASTIC)
+    
+    edge_target = vscale(vsub(inv_edge_vel, vscale(inv_norm, 2 * vdot(inv_edge_vel, inv_norm))), COEFF_ELASTIC)
+    inv_edge_targ = vnormalize(vinv(edge_target))
+    
+    offset1 = vscale(inv_middle, d2 / len)
+    offset2 = vscale(inv_middle, d1 / len)
+    
+    if (.not. st%p1%response_applied) then
+       
+       st%p1%pos = vadd(st%p1%pos, offset1)
+       ! st%p1%prev_pos = vadd(st%p1%pos, vscale(edge_target, d1 / len))
+    end if
+    
+    if (.not. st%p2%response_applied) then
+       
+       st%p2%pos = vadd(st%p2%pos, offset2)
+       ! st%p2%prev_pos = vadd(st%p2%pos, vscale(edge_target, d2 / len))
+    end if
+    
+    point%prev_pos = vadd(point%pos, targ)
+    point%response_applied = .TRUE.
+
+
   end subroutine response
 
   subroutine collision (me, cur_obj)
@@ -363,6 +424,7 @@ contains
     do ii = 1, size (cur_obj%particles)
        cur => cur_obj%particles(ii)
        
+       cur%response_applied = .FALSE.
        if (cur%pos%y > SCREEN_HEIGHT - cur%radius) then
           cur%pos%y = SCREEN_HEIGHT - cur%radius
           cur%prev_pos%y = cur%pos%y + (cur%verlet_velocity%y * COEFF_ELASTIC) * delta
