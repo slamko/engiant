@@ -68,9 +68,9 @@ program main
        
        if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
           ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
-          call instantiate_rectangle (eng_ptr, get_mouse_position(), 120.0, 140., 20.0)
+          ! call instantiate_rectangle (eng_ptr, get_mouse_position(), 120.0, 140., 20.0)
           ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
-          ! call instantiate_polygon (eng_ptr, get_mouse_position(), 30.0, 8)
+          call instantiate_polygon (eng_ptr, get_mouse_position(), 35.0, 16)
        end if
        
        if (is_mouse_button_released(MOUSE_BUTTON_RIGHT)) then
@@ -352,15 +352,13 @@ contains
     ob => eng%obj(eng%cur_obj + 1)
     ob%init = .TRUE.
 
-    allocate(ob%particles(sector_num + 1))
-    allocate(ob%match_shape(sector_num + 1))
-    allocate(ob%sticks(sector_num * 2))
+    allocate(ob%particles(sector_num))
+    allocate(ob%match_shape(sector_num))
+    allocate(ob%sticks(sector_num))
 
     mass = 1. / float(sector_num)
-    ob%particles(1) = point_particle(.TRUE., pos, pos, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS)
-    ob%match_shape(1) = geom_point(pos)
 
-    do i = 2, sector_num + 1
+    do i = 1, sector_num
        block
          type (vector2_type) :: point
          real :: x, y
@@ -370,26 +368,24 @@ contains
          point = vector2_type (x, y)
          
          ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS)
-         ob%match_shape(i) = geom_point(point)
+         ob%match_shape(i) = geom_point(vsub(point, pos))
        end block
     end do
 
     do i = 1, sector_num
        block
-         real :: length, length_center
+         real :: length
          integer :: next_id
 
-         next_id = i + 2
+         next_id = i + 1
 
-         if (i + 2 > sector_num + 1) then 
-            next_id = 2
+         if (i + 1 > sector_num) then 
+            next_id = 1
          end if
          
-         length = vmag(vsub(ob%particles(i + 1)%pos, ob%particles(next_id)%pos))
-         length_center = vmag(vsub(ob%particles(i + 1)%pos, ob%particles(1)%pos))
+         length = vmag(vsub(ob%particles(i)%pos, ob%particles(next_id)%pos))
 
-         ob%sticks(2*(i - 1) + 1) = stick(.TRUE., ob%particles(i + 1), ob%particles(next_id), length, .TRUE.)
-         ob%sticks(2*i) = stick(.TRUE., ob%particles(i + 1), ob%particles(1), length_center, .FALSE.)
+         ob%sticks(i) = stick(.TRUE., ob%particles(i), ob%particles(next_id), length, .TRUE.)
      end block
     end do
 
