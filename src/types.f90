@@ -2,6 +2,17 @@ module types
   use raylib
   implicit none
   
+  integer, parameter :: SCREEN_HEIGHT = 680
+  integer, parameter :: SCREEN_WIDTH = 1200
+  integer, parameter :: MIDDLE_X = SCREEN_WIDTH / 2.0
+  integer, parameter :: MIDDLE_Y = SCREEN_HEIGHT / 2.0
+  type(vector2_type), parameter :: MIDDLE = vector2_type(MIDDLE_X, MIDDLE_Y)
+  real, parameter :: PART_RADIUS = 3.0
+
+  integer, parameter :: RADIUS = min(SCREEN_HEIGHT, SCREEN_WIDTH) / 2
+
+  integer, parameter :: FPS = 240
+
   type, abstract :: render_body
      logical :: init
   end type render_body
