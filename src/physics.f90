@@ -8,10 +8,17 @@ module physics
   type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 10.0)
 
   interface
+
      subroutine obj_iter(obj)
        use types
        type (object), pointer :: obj
      end subroutine obj_iter
+
+     subroutine obj_iter2(obj, cur_obj)
+       use types
+       type (object), pointer :: obj, cur_obj
+     end subroutine obj_iter2
+
   end interface
 
 contains
@@ -76,9 +83,86 @@ contains
    
    subroutine apply_shape_match (obj)
      type (object), pointer :: obj
+     type (vector2_type) :: center
+     type (geom_point), dimension(size(obj%particles)) :: obj_shape
+     integer :: i
+     real :: sinb, cosb
+
+     sinb = 0.0
+     cosb = 0.0
+     center = vzero()
+     obj_shape = obj%match_shape
+     
+     do i = 1, size(obj%particles)
+        center = vadd(center, obj%particles(i)%pos)
+     end do
+     center = vscale(center, 1.0 / real(size(obj_shape)))
+
+     call draw_circle (int(center%x), int(center%y), 10.0, BLUE)
+
+     do i = 1, size(obj%particles)
+        block
+          type (vector2_type) :: point_vec, shape_point_vec
+
+          point_vec = vsub(obj%particles(i)%pos, center)
+          sinb = sinb + (vcross(obj_shape(i)%pos, point_vec) / (vmag(obj_shape(i)%pos) * vmag(point_vec)))
+          cosb = cosb + (vdot(obj_shape(i)%pos, point_vec) / (vmag(obj_shape(i)%pos) * vmag(point_vec)))
+        end block
+     end do
+
+     cosb = cosb / real(size(obj%particles))
+     sinb = sinb / real(size(obj%particles))
+
+     do i = 1, size(obj_shape)
+        block
+          real :: force_fact, pos_fact, k, p
+          type (point_particle), pointer :: cur
+          type (vector2_type) :: diff
+          real :: dist
+          
+          k = 50.0
+          obj_shape(i)%pos = vadd(center, vrotate(obj_shape(i)%pos, cosb, sinb))
+
+          cur => obj%particles(i)
+          diff = vsub(obj_shape(i)%pos, cur%pos)
+          dist = vmag(diff)
+
+          cur%force = vadd(cur%force, vscale(diff, k))
+           
+        end block
+     end do
      
    end subroutine apply_shape_match
-   
+    
+   subroutine iter2 (f, objects, num)
+     type (object), target, dimension(*) :: objects
+     type (object), pointer :: obj
+     procedure (obj_iter2) :: f
+     integer :: num, i
+     
+     do i = 1, num
+        block
+          integer :: ii
+          obj => objects(i)
+          
+          if (.not. obj%init) cycle
+           
+          do ii = 1, num
+             block
+               type (object), pointer :: cur_obj
+               cur_obj => objects(ii)
+     
+               if (.not. cur_obj%init) cycle
+
+               call f (obj, cur_obj)
+
+             end block
+          end do
+        end block
+
+     end do
+  end subroutine iter2
+
    subroutine iter (f, objects, num)
      type (object), target, dimension(*) :: objects
      procedure (obj_iter) :: f

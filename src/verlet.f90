@@ -5,6 +5,7 @@ program main
   use types
   use math
   use physics
+  use renderer
 
   implicit none
 
@@ -20,12 +21,14 @@ program main
 
   real :: delta, prev_delta
   integer :: num_alloc
+  integer :: counter
    
   type (engine), target :: eng
   type (engine), pointer :: eng_ptr
   integer :: j
 
   call random_seed()
+  counter = 0
 
   call init_window(SCREEN_WIDTH, SCREEN_HEIGHT, 'Fortran raylib' // c_null_char)
   call set_target_fps(FPS)
@@ -43,32 +46,28 @@ program main
   do while (.not. window_should_close())
      block
        integer :: i
-       procedure (obj_iter), pointer :: gravity 
-       procedure (obj_iter), pointer :: springs
-
-       ! gravity => apply_gravity
-       ! springs => apply_springs
 
        delta = get_frame_time()
        
        call begin_drawing()
        call clear_background(BLACK)
-       ! call draw_polygon (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
        
-       do i = 1, 5
+       do i = 1, 2
           call iter(apply_springs, eng%obj, size(eng%obj))
+          call iter(apply_shape_match, eng%obj, size(eng%obj))
        end do
        
        call iter(apply_gravity, eng%obj, size(eng%obj))
-       call constraint(eng%obj, size(eng%obj))
+       call iter(constraint, eng%obj, size(eng%obj))
+       call iter2(collision, eng%obj, size(eng%obj))
        
-       call verlet(eng%obj, size(eng%obj))
+       call iter(verlet, eng%obj, size(eng%obj))
        
-       call render(eng%obj, size(eng%obj))
-       call render_sticks(eng%obj, size(eng%obj))
+       call iter(render, eng%obj, size(eng%obj))
+       call iter(render_sticks, eng%obj, size(eng%obj))
        
        if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
-          call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
+          call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 20.0)
           ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
           ! call instantiate_polygon (eng_ptr, get_mouse_position(), 30.0, 8)
        end if
@@ -172,20 +171,14 @@ contains
 
   end function get_outside_point
 
-  subroutine collision (me, objects, num)
+  subroutine collision (me, cur_obj)
     type (object), pointer :: me
-    type (object), target, dimension(*) :: objects
-    integer :: num, i
-
-    do i = 1, num
-       block
-       type (object), pointer :: cur_obj
+    type (object), pointer :: cur_obj
        type (point_particle), pointer :: cur
        type (vector2_type) :: outside_point, double_outside, inv_outside, min_point, max_point
        integer :: ii
-       cur_obj => objects(i)
 
-       if (.not. cur_obj%init .or. associated(cur_obj, me)) cycle
+       if (associated(cur_obj, me)) return
 
        outside_point = get_outside_point(cur_obj)
        double_outside = vadd(outside_point, vector2_type(100.0, 0.0))
@@ -197,10 +190,11 @@ contains
        do ii = 1, size (me%particles)
           block
             integer :: iii = 0, intersect_cnt = 0, nearest = 0
-            real :: nearest_dist = 3e+8
+            real :: nearest_dist = 3e+8, max_vdot
             cur => me%particles(ii)
 
             nearest_dist = 3e+8
+            max_vdot = 0.0
             iii = 0
             nearest = 0
             intersect_cnt = 0
@@ -208,26 +202,31 @@ contains
             do iii = 1, size (cur_obj%sticks)
                block
                  real :: dist
+                 type (vector2_type) :: norm, vel
 
                if (.not. cur_obj%sticks(iii)%edge_stick) cycle
 
                if (segment_intersect(me%particles(ii)%pos, outside_point, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
                      intersect_cnt = intersect_cnt + 1
-                  ! if (segment_intersect(me%particles(ii)%pos, double_outside, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
-                     ! if (segment_intersect(me%particles(ii)%pos, inv_outside, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)) then
-                  ! end if
                end if
 
+               norm = segment_norm(cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)
+               vel = vnormalize(vsub(cur%pos, cur%prev_pos))
 
                dist = point_segment_distance(me%particles(ii)%pos, cur_obj%sticks(iii)%p1%pos, cur_obj%sticks(iii)%p2%pos)
 
-               if (dist < nearest_dist) then
+               if (dist < nearest_dist)  then
                   nearest_dist = dist
                   nearest = iii
                end if
 
              end block
             end do
+
+            if (nearest .eq. 0) then
+               print *, "No nearest"
+               return
+            end if
 
             if (modulo(intersect_cnt, 2) .eq. 1) then
 
@@ -239,6 +238,10 @@ contains
                 type (stick), pointer :: st
                 type (point_particle), pointer :: point
                 real :: d1, d2, len, middle_mag
+
+                counter = counter + 1
+                print *, "Detected!"
+                print *, counter
 
                 point => me%particles(ii)
                 st => cur_obj%sticks(nearest)
@@ -293,69 +296,45 @@ contains
           end block
 
        end do
-       
-       end block
-    end do
  
   end subroutine collision
 
-  subroutine constraint (objects, num)
-    type (object), target, dimension(*) :: objects
-    integer :: num, i
+  subroutine constraint (cur_obj)
+    type (object), pointer :: cur_obj
+    type (point_particle), pointer :: cur
+    integer :: ii
 
-    do i = 1, num
-       block
-       type (object), pointer :: cur_obj
-       type (point_particle), pointer :: cur
-       integer :: ii
-       cur_obj => objects(i)
-
-       if (.not. cur_obj%init) cycle
-
-       call collision (cur_obj, objects, num)
+    
+    do ii = 1, size (cur_obj%particles)
+       cur => cur_obj%particles(ii)
        
-       do ii = 1, size (cur_obj%particles)
-          cur => cur_obj%particles(ii)
-          
-         if (cur%pos%y > SCREEN_HEIGHT - cur%radius) then
-             cur%pos%y = SCREEN_HEIGHT - cur%radius
-             cur%prev_pos%y = cur%pos%y + (cur%verlet_velocity%y * COEFF_ELASTIC) * delta
-             cur%prev_pos%x = cur%pos%x - (cur%verlet_velocity%x * COEFF_ELASTIC) * delta
-          end if
- 
-       end do
-       end block
+       if (cur%pos%y > SCREEN_HEIGHT - cur%radius) then
+          cur%pos%y = SCREEN_HEIGHT - cur%radius
+          cur%prev_pos%y = cur%pos%y + (cur%verlet_velocity%y * COEFF_ELASTIC) * delta
+          cur%prev_pos%x = cur%pos%x - (cur%verlet_velocity%x * COEFF_ELASTIC) * delta
+       end if
+       
     end do
   end subroutine
 
-  subroutine verlet (objects, num)
-    type (object), target, dimension(*) :: objects
-    integer :: num, i
-
-    do i = 1, num
+  subroutine verlet (cur_obj)
+    type (object), pointer :: cur_obj
+    type (point_particle), pointer :: cur
+    type (vector2_type) :: cur_pos
+    integer :: ii
+    
+    do ii = 1, size (cur_obj%particles)
        block
-       type (object), pointer :: cur_obj
-       type (point_particle), pointer :: cur
-       type (vector2_type) :: cur_pos
-       integer :: ii
-       cur_obj => objects(i)
-
-       if (.not. cur_obj%init) cycle
-
-       do ii = 1, size (cur_obj%particles)
-          block
-            type (vector2_type) :: acc
-          cur => cur_obj%particles(ii)
-          cur_pos = cur%pos
-          
-          acc = vscale(cur%force, 1. / cur%mass)
-          cur%force = vector2_type(0,0)
-          cur%pos = vadd(vsub(vscale(cur%pos, 2.0), cur%prev_pos), vscale(acc, (delta ** 2)))
-
-          cur%verlet_velocity = verlet_velocity(cur, cur%prev_pos, delta)
-          cur%prev_pos = cur_pos
-          end block
-       end do
+         type (vector2_type) :: acc
+         cur => cur_obj%particles(ii)
+         cur_pos = cur%pos
+         
+         acc = vscale(cur%force, 1. / cur%mass)
+         cur%force = vector2_type(0,0)
+         cur%pos = vadd(vsub(vscale(cur%pos, 2.0), cur%prev_pos), vscale(acc, (delta ** 2)))
+         
+         cur%verlet_velocity = verlet_velocity(cur, cur%prev_pos, delta)
+         cur%prev_pos = cur_pos
        end block
     end do
   end subroutine
@@ -375,10 +354,12 @@ contains
     ob%init = .TRUE.
 
     allocate(ob%particles(sector_num + 1))
+    allocate(ob%match_shape(sector_num + 1))
     allocate(ob%sticks(sector_num * 2))
 
     mass = 1. / float(sector_num)
     ob%particles(1) = point_particle(.TRUE., pos, pos, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS)
+    ob%match_shape(1) = geom_point(pos)
 
     do i = 2, sector_num + 1
        block
@@ -390,6 +371,7 @@ contains
          point = vector2_type (x, y)
          
          ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS)
+         ob%match_shape(i) = geom_point(point)
        end block
     end do
 
@@ -437,7 +419,8 @@ contains
     diag_sticks = (point_num_x - 1) * (point_num_y - 1) * 2
 
     allocate(ob%particles(point_num))
-    allocate(ob%sticks(vertical_sticks + horiz_sticks + diag_sticks))
+    allocate(ob%match_shape(point_num))
+    allocate(ob%sticks(vertical_sticks + horiz_sticks))
 
     start_pos = vector2_type(pos%x - width / 2, pos%y - height / 2)
     mass = 1.0 / float(point_num)
@@ -452,6 +435,7 @@ contains
          point = vector2_type (x, y)
          
          ob%particles(i) = point_particle(.TRUE., point, point, vector2_type(0, 0), mass, vector2_type(0, 0), PART_RADIUS)
+         ob%match_shape(i) = geom_point(vsub(point, pos))
        end block
     end do
 
@@ -495,80 +479,40 @@ contains
      end block
      end do
 
-    do i = 1, (point_num - point_num_x)
-       block
-         real :: length
-         integer p1_id, p2_id
-         p1_id = i
-         p2_id = i + point_num_x + 1
-
-         if (modulo(i, point_num_x) .eq. 0) cycle
-        
-         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
-
-         ob%sticks(vertical_sticks + horiz_sticks + i - (i / point_num_x)) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
-     end block
-
-     end do
-         do i = 1, (point_num - point_num_x)
-       block
-         real :: length
-         integer p1_id, p2_id
-         p1_id = i
-         p2_id = i + point_num_x - 1
-
-         if (modulo(i, point_num_x) .eq. 1) cycle
-        
-         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
-
-         ob%sticks(vertical_sticks + horiz_sticks + (diag_sticks / 2) + i - (((i - 1) / point_num_x) + 1)) = &
-              stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
-     end block
-     end do
+!!$    do i = 1, (point_num - point_num_x)
+!!$       block
+!!$         real :: length
+!!$         integer p1_id, p2_id
+!!$         p1_id = i
+!!$         p2_id = i + point_num_x + 1
+!!$
+!!$         if (modulo(i, point_num_x) .eq. 0) cycle
+!!$        
+!!$         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
+!!$
+!!$         ob%sticks(vertical_sticks + horiz_sticks + i - (i / point_num_x)) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
+!!$     end block
+!!$
+!!$     end do
+!!$         do i = 1, (point_num - point_num_x)
+!!$       block
+!!$         real :: length
+!!$         integer p1_id, p2_id
+!!$         p1_id = i
+!!$         p2_id = i + point_num_x - 1
+!!$
+!!$         if (modulo(i, point_num_x) .eq. 1) cycle
+!!$        
+!!$         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
+!!$
+!!$         ob%sticks(vertical_sticks + horiz_sticks + (diag_sticks / 2) + i - (((i - 1) / point_num_x) + 1)) = &
+!!$              stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
+!!$     end block
+!!$     end do
+!!$
 
     eng%cur_obj = eng%cur_obj + 1
   end subroutine instantiate_full_rectangle
 
-  subroutine render (objects, num)
-    type (object), target, dimension(*) :: objects
-    integer :: num, i
 
-    do i = 1, num
-       block
-       type (object), pointer :: cur_obj
-       type (point_particle), pointer :: cur
-       integer :: ii
-       cur_obj => objects(i)
-
-       if (.not. cur_obj%init) cycle
-
-       do ii = 1, size (cur_obj%particles)
-          cur => cur_obj%particles(ii)
-          call draw_circle(int(cur%pos%x), int(cur%pos%y), cur%radius, RED)
-       end do
-       end block
-    end do
-  end subroutine
-
-  subroutine render_sticks (objects, num)
-    type (object), target, dimension(*) :: objects
-    integer :: num, i
-
-    do i = 1, num
-       block
-       type (object), pointer :: cur_obj
-       type (stick), pointer :: cur
-       integer :: ii
-       cur_obj => objects(i)
-
-       if (.not. cur_obj%init) cycle
-
-       do ii = 1, size (cur_obj%sticks)
-          cur => cur_obj%sticks(ii)
-          call draw_line (int(cur%p1%pos%x), int(cur%p1%pos%y), int(cur%p2%pos%x), int(cur%p2%pos%y), GREEN)
-       end do
-       end block
-    end do
-  end subroutine
- 
 end program

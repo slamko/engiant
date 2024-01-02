@@ -25,9 +25,15 @@ module types
      logical :: edge_stick
   end type stick
 
+  type :: geom_point
+     type (vector2_type) :: pos
+  end type geom_point
+
   type, public, extends (render_body) :: object
      type (point_particle), dimension(:), allocatable :: particles
      type (stick), dimension(:), allocatable :: sticks
+
+     type (geom_point), dimension(:), allocatable :: match_shape
   end type object
 
   type :: engine

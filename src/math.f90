@@ -27,6 +27,21 @@ contains
     res = v1%x * v2%x + v1%y * v2%y
   end function 
 
+  function vcross (v1, v2) result(res)
+    type (vector2_type), intent(in) :: v1, v2
+    real :: res
+
+    res = v1%x * v2%y - v1%y * v2%x
+  end function 
+
+  function vrotate (v1, cosb, sinb) result(res)
+    type (vector2_type), intent(in) :: v1
+    type (vector2_type) :: res
+    real :: cosb, sinb
+
+    res = vector2_type(v1%x * cosb - v1%y * sinb, v1%x * sinb  + v1%y * cosb)
+  end function
+
   function vscale (v1, fact) result(vec)
     type (vector2_type), intent(in) :: v1
     real, intent(in) :: fact
@@ -148,6 +163,12 @@ contains
 
     end if
   end function segment_intersect
+
+  function vzero()
+    type (vector2_type) :: vzero
+
+    vzero = vector2_type(0.0, 0.0)
+  end function vzero
 
   function segment_norm(s1p1, s1p2) result(norm)
     type (vector2_type) :: s1p1, s1p2, norm, vec
