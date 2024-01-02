@@ -101,7 +101,7 @@ contains
      end do
      center = vscale(center, 1.0 / real(size(obj_shape)))
 
-     call draw_circle (int(center%x), int(center%y), 10.0, BLUE)
+     ! call draw_circle (int(center%x), int(center%y), 10.0, BLUE)
 
      do i = 1, size(obj%particles)
         block
@@ -124,8 +124,8 @@ contains
           type (vector2_type) :: diff
           real :: dist
           
-          k = 40.0
-          p = 64.0
+          k = 30.0
+          p = 32.0
 
           obj_shape(i)%pos = vadd(center, vrotate(obj_shape(i)%pos, cosb, sinb))
 
@@ -214,8 +214,8 @@ contains
     type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev, edge_target
     type (vector2_type) :: intersect, pseudo_vel, rnorm, edge_vel, inv_edge_vel, inv_norm, middle_pos
     type (vector2_type) :: offset1, offset2, middle_vec, inv_middle, inv_edge_targ
-    type (vector2_type) :: vel_orth, vel_par, st_vel_orth, st_vel_par, dir, new_vel, new_st_vel
-    real :: common_vel, vel_after, st_vel_after, vlen, st_vlen
+    type (vector2_type) :: vel_orth, vel_par, st_vel_orth, st_vel_par, dir, new_vel, new_st_vel, vel_after, st_vel_after
+    real :: common_vel, vlen, st_vlen
     real :: d1, d2, len, middle_mag, avg_mass
 
     type (stick), pointer :: st
@@ -233,7 +233,7 @@ contains
     inv_norm = rnorm
     rnorm = vinv(rnorm)
 
-    edge_vel = vadd(vsub(st%p1%pos, st%p1%prev_pos), vsub(st%p2%pos, st%p2%prev_pos))
+    edge_vel = vscale(vadd(vsub(st%p1%pos, st%p1%prev_pos), vsub(st%p2%pos, st%p2%prev_pos)), 0.5)
     inv_edge_vel = vinv(edge_vel)
 
     pseudo_vel = vsub(point%pos, point%prev_pos)
@@ -243,14 +243,14 @@ contains
     st_vel_orth = vscale(dir, (vdot(dir, edge_vel)))
     st_vel_par = vscale(rnorm, (vdot(rnorm, edge_vel)))
 
-    vlen = vmag(vel_par)
-    st_vlen = vmag(st_vel_par)
+    vlen = vdot(rnorm, pseudo_vel)
+    st_vlen = vdot(rnorm, edge_vel)
 
-    vel_after = (point%mass * vlen + avg_mass * st_vlen + avg_mass * COEFF_ELASTIC * (st_vlen - vlen)) / (point%mass + avg_mass)
-    st_vel_after = (point%mass * vlen + avg_mass * st_vlen + point%mass * COEFF_ELASTIC * (vlen - st_vlen)) / (point%mass + avg_mass)
+    vel_after = vscale(rnorm, (point%mass * vlen + avg_mass * st_vlen + avg_mass * COEFF_ELASTIC * (st_vlen - vlen)) / (point%mass + avg_mass))
+    st_vel_after = vscale(rnorm, (point%mass * vlen + avg_mass * st_vlen + point%mass * COEFF_ELASTIC * (vlen - st_vlen)) / (point%mass + avg_mass))
 
-    new_vel = vadd(vel_orth, vscale(vel_par, vel_after / vlen))
-    new_st_vel = vadd(st_vel_orth, vscale(st_vel_par, st_vel_after / st_vlen))
+    new_vel = vadd(vel_orth, vel_after)
+    new_st_vel = vadd(st_vel_orth, st_vel_after)
 
     middle_vec = vscale(vsub(intersect, point%pos), 0.5)
     inv_middle = vinv(middle_vec)
@@ -266,21 +266,26 @@ contains
     
     if (.not. st%p1%response_applied) then
        st%p1%pos = vadd(st%p1%pos, offset1)
-       st%p1%prev_pos = vadd(st%p1%pos, vscale(vinv(new_st_vel), d2 / len))
+       ! st%p1%prev_pos = vadd(st%p1%pos, vscale(vinv(new_st_vel), d2 / len))
     end if
     
     if (.not. st%p2%response_applied) then
        st%p2%pos = vadd(st%p2%pos, offset2)
-       st%p2%prev_pos = vadd(st%p2%pos, vscale(vinv(new_st_vel), d1 / len))
+       ! st%p2%prev_pos = vadd(st%p2%pos, vscale(vinv(new_st_vel), d1 / len))
     end if
     
     point%prev_pos = vadd(point%pos, vinv(new_vel))
+
+    block
+      type (vector2_type) :: vv
+      ! vv = vadd(point%pos, vscale(new_vel, 50.0))
+      ! call draw_line (int(point%pos%x), int(point%pos%y), int(vv%x), int(vv%y), BLUE)
+    end block
+
     point%response_applied = .TRUE.
   end subroutine impulse_response
-    
-!!$
-!!$
 
+    
   subroutine response (point, st)
     type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev, edge_target
     type (vector2_type) :: intersect, pseudo_vel, rnorm, edge_vel, inv_edge_vel, inv_norm, middle_pos
@@ -405,7 +410,7 @@ contains
                 point => me%particles(ii)
                 st => cur_obj%sticks(nearest)
                 
-                call response(point, st)
+                call impulse_response(point, st)
 
               end block
             end if
