@@ -43,43 +43,41 @@ program main
   do while (.not. window_should_close())
      block
        integer :: i
-     delta = get_frame_time()
+       procedure (obj_iter), pointer :: gravity 
+       procedure (obj_iter), pointer :: springs
 
-     call begin_drawing()
-     call clear_background(BLACK)
-     ! call draw_polygon (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
+       ! gravity => apply_gravity
+       ! springs => apply_springs
 
-     do i = 1, 5
-     call apply_springs(eng%obj, size(eng%obj))
-        ! call solve_sticks(eng%obj, size(eng%obj))
-     end do
+       delta = get_frame_time()
+       
+       call begin_drawing()
+       call clear_background(BLACK)
+       ! call draw_polygon (MIDDLE_X, MIDDLE_Y, float(RADIUS), WHITE)
+       
+       do i = 1, 5
+          call iter(apply_springs, eng%obj, size(eng%obj))
+       end do
+       
+       call iter(apply_gravity, eng%obj, size(eng%obj))
+       call constraint(eng%obj, size(eng%obj))
+       
+       call verlet(eng%obj, size(eng%obj))
+       
+       call render(eng%obj, size(eng%obj))
+       call render_sticks(eng%obj, size(eng%obj))
+       
+       if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
+          call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
+          ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
+          ! call instantiate_polygon (eng_ptr, get_mouse_position(), 30.0, 8)
+       end if
+       
+       if (is_mouse_button_released(MOUSE_BUTTON_RIGHT)) then
+          call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 4)
+       end if
 
-     call apply_gravity(eng%obj, size(eng%obj))
-     call constraint(eng%obj, size(eng%obj))
-
-     call verlet(eng%obj, size(eng%obj))
-     ! call apply_pos(eng%obj, size(eng%obj))
-
-      do i = 1, 3
-        ! call solve_sticks(eng%obj, size(eng%obj))
-     end do
-
-     ! call draw_cube_v(vector3_type(100.0, 300.0, 150.0), vector3_type(200.0, 100.0, 150.0), RED)
-
-     call render(eng%obj, size(eng%obj))
-     call render_sticks(eng%obj, size(eng%obj))
-
-     if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
-        call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
-        ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
-        ! call instantiate_polygon (eng_ptr, get_mouse_position(), 30.0, 8)
-     end if
-
-     if (is_mouse_button_released(MOUSE_BUTTON_RIGHT)) then
-        call instantiate_polygon (eng_ptr, get_mouse_position(), 20.0, 4)
-     end if
-
-     call end_drawing()
+       call end_drawing()
      end block
   end do
 
