@@ -39,7 +39,7 @@ contains
     type (vector2_type) :: res
     real :: cosb, sinb
 
-    res = vector2_type(v1%x * cosb - v1%y * sinb, v1%x * sinb  + v1%y * cosb)
+    res = vector2_type(v1%x * cosb - v1%y * sinb, v1%x * sinb + v1%y * cosb)
   end function
 
   function vscale (v1, fact) result(vec)
@@ -116,8 +116,8 @@ contains
 
     b2 = s2p1%y - a2 * s2p1%x
 
-    if (abs(a2 - a1) < 0.001) then
-       inter = vector2_type(0.0, 0.0)
+    if (abs(a2 - a1) < 1e-5) then
+       inter = s1p1
        print *, "Error: little slope\n"
     else
        x = (b1 - b2) / (a2 - a1)

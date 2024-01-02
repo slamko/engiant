@@ -67,7 +67,7 @@ program main
        call iter(render_sticks, eng%obj, size(eng%obj))
        
        if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
-          ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 20.0)
+          ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
           call instantiate_rectangle (eng_ptr, get_mouse_position(), 120.0, 140., 20.0)
           ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
           ! call instantiate_polygon (eng_ptr, get_mouse_position(), 30.0, 8)

@@ -110,8 +110,8 @@ contains
         end block
      end do
 
-     cosb = cosb / real(size(obj%particles))
-     sinb = sinb / real(size(obj%particles))
+     cosb = cosb / real(size(obj_shape))
+     sinb = sinb / real(size(obj_shape))
 
      do i = 1, size(obj_shape)
         block
@@ -122,7 +122,7 @@ contains
           real :: dist
           
           k = 40.0
-          p = 32.0
+          p = 64.0
 
           obj_shape(i)%pos = vadd(center, vrotate(obj_shape(i)%pos, cosb, sinb))
 
@@ -130,8 +130,7 @@ contains
 
           cur => obj%particles(i)
           diff = vsub(obj_shape(i)%pos, cur%pos)
-          dist = vmag(diff)
-          pos_vec = vscale (vnormalize(diff), 1.0 / p)
+          pos_vec = vscale (diff, 1.0 / p)
 
           cur%force = vadd(cur%force, vscale(diff, k))
           cur%pos = vadd(cur%pos, pos_vec)
