@@ -116,19 +116,25 @@ contains
      do i = 1, size(obj_shape)
         block
           real :: force_fact, pos_fact, k, p
+          type (vector2_type) :: force_vec, pos_vec
           type (point_particle), pointer :: cur
           type (vector2_type) :: diff
           real :: dist
           
-          k = 50.0
+          k = 40.0
+          p = 32.0
+
           obj_shape(i)%pos = vadd(center, vrotate(obj_shape(i)%pos, cosb, sinb))
+
+          ! call draw_circle (int(obj_shape(i)%pos%x), int((obj_shape(i)%pos%y)), 5.0, BLUE)
 
           cur => obj%particles(i)
           diff = vsub(obj_shape(i)%pos, cur%pos)
           dist = vmag(diff)
+          pos_vec = vscale (vnormalize(diff), 1.0 / p)
 
           cur%force = vadd(cur%force, vscale(diff, k))
-           
+          cur%pos = vadd(cur%pos, pos_vec)
         end block
      end do
      
