@@ -1,10 +1,14 @@
 module renderer
   use raylib
   use types
+  use integrator
+
+  implicit none
 
 contains
 
-  subroutine render (cur_obj)
+  subroutine render (integ, cur_obj)
+    class (base_integrator), pointer :: integ
     type (object), pointer :: cur_obj
     type (point_particle), pointer :: cur
     integer :: ii
@@ -15,7 +19,8 @@ contains
     end do
   end subroutine render
 
-  subroutine render_sticks (cur_obj)
+  subroutine render_sticks (integ, cur_obj)
+    class (base_integrator), pointer :: integ
     type (object), pointer :: cur_obj
     type (stick), pointer :: cur
     integer :: ii

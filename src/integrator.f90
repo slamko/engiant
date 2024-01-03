@@ -40,4 +40,14 @@ module integrator
 
   real :: delta, prev_delta
 
+contains
+
+  subroutine do_integrate (integ, obj)
+    class (base_integrator), pointer :: integ
+    type (object), pointer :: obj
+
+    call integ%integrate (obj)
+    
+  end subroutine do_integrate
+
 end module integrator

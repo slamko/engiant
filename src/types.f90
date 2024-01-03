@@ -11,7 +11,7 @@ module types
 
   integer, parameter :: RADIUS = min(SCREEN_HEIGHT, SCREEN_WIDTH) / 2
 
-  integer, parameter :: FPS = 240
+  integer, parameter :: FPS = 120
 
   type, abstract :: render_body
      logical :: init

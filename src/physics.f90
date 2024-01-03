@@ -16,8 +16,11 @@ module physics
        type (object), pointer :: obj
      end subroutine obj_iter
 
-     subroutine obj_iter2(obj, cur_obj)
+     subroutine obj_iter2(integ, obj, cur_obj)
        use types
+       use integrator
+       
+       class (base_integrator), pointer :: integ
        type (object), pointer :: obj, cur_obj
      end subroutine obj_iter2
 
@@ -25,7 +28,8 @@ module physics
 
 contains
 
-  subroutine apply_gravity (cur_obj)
+  subroutine apply_gravity (integ, cur_obj)
+    class (base_integrator), pointer :: integ
      type (object), pointer :: cur_obj
      type (point_particle), pointer :: cur
      integer :: i
@@ -37,7 +41,8 @@ contains
      
   end subroutine apply_gravity
 
-  subroutine apply_springs (cur_obj)
+  subroutine apply_springs (integ, cur_obj)
+    class (base_integrator), pointer :: integ
      type (object), pointer :: cur_obj
      integer ::  i
        
@@ -59,7 +64,7 @@ contains
                type (vector2_type) :: old_pos_p1, old_pos_p2
                real :: force_fact, pos_fact, k, p
                
-               normal_diff = vnormalize (diff) !
+               normal_diff = vnormalize (diff)
                
                k = 4.0
                p = 100.
@@ -83,7 +88,8 @@ contains
      end do
    end subroutine apply_springs
    
-   subroutine apply_shape_match (obj)
+   subroutine apply_shape_match (integ, obj)
+    class (base_integrator), pointer :: integ
      type (object), pointer :: obj
      type (vector2_type) :: center
      type (geom_point), dimension(size(obj%particles)) :: obj_shape
@@ -140,6 +146,7 @@ contains
      end do
      
    end subroutine apply_shape_match
+
   function get_max_point (obj) result(max_point)
     type (object), pointer :: obj
     type (vector2_type) :: max_point
@@ -208,7 +215,8 @@ contains
 
   end function get_outside_point
 
-  subroutine impulse_response (point, st)
+  subroutine impulse_response (integ, point, st)
+    class (base_integrator), pointer :: integ
 !!$    
     type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev, edge_target
     type (vector2_type) :: intersect, pseudo_vel, rnorm, edge_vel, inv_edge_vel, inv_norm, middle_pos
@@ -232,10 +240,9 @@ contains
     inv_norm = rnorm
     rnorm = vinv(rnorm)
 
-    edge_vel = vscale(vadd(vsub(st%p1%pos, st%p1%prev_pos), vsub(st%p2%pos, st%p2%prev_pos)), 0.5)
-    inv_edge_vel = vinv(edge_vel)
+    edge_vel = vscale(vadd(integ%get_velocity(st%p1), integ%get_velocity(st%p2)), 0.5)
 
-    pseudo_vel = vsub(point%pos, point%prev_pos)
+    pseudo_vel = integ%get_velocity(point)
     vel_orth = vscale(dir, (vdot(dir, pseudo_vel)))
     vel_par = vscale(rnorm, (vdot(rnorm, pseudo_vel)))
    
@@ -257,34 +264,29 @@ contains
     middle_pos = vadd(middle_vec, point%pos)
     
     point%pos = middle_pos
-    intermid = vadd(point%pos, pseudo_vel)
-    intermid_vec = vsub(point%pos, intermid)
 
     offset1 = vscale(inv_middle, d2 / len)
     offset2 = vscale(inv_middle, d1 / len)
     
-    if (.not. st%p1%response_applied) then
-       st%p1%pos = vadd(st%p1%pos, offset1)
+    ! if (.not. st%p1%response_applied) then
+    st%p1%pos = vadd(st%p1%pos, offset1)
        ! st%p1%prev_pos = vadd(st%p1%pos, vscale(vinv(new_st_vel), d2 / len))
-    end if
+       ! call integ%set_velocity(st%p1, new_st_vel)
+    ! end if
     
-    if (.not. st%p2%response_applied) then
-       st%p2%pos = vadd(st%p2%pos, offset2)
+    ! if (.not. st%p2%response_applied) then
+    st%p2%pos = vadd(st%p2%pos, offset2)
+       ! call integ%set_velocity(st%p2, new_st_vel)
        ! st%p2%prev_pos = vadd(st%p2%pos, vscale(vinv(new_st_vel), d1 / len))
-    end if
+    ! end if
     
-    point%prev_pos = vadd(point%pos, vinv(new_vel))
+    call integ%set_velocity (point, new_vel)
 
-    block
-      type (vector2_type) :: vv
-      ! vv = vadd(point%pos, vscale(new_vel, 50.0))
-      ! call draw_line (int(point%pos%x), int(point%pos%y), int(vv%x), int(vv%y), BLUE)
-    end block
-
-    point%response_applied = .TRUE.
+    ! point%response_applied = .TRUE.
   end subroutine impulse_response
 
-  subroutine response (point, st)
+  subroutine response (integ, point, st)
+    class (base_integrator), pointer :: integ
     type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev, edge_target
     type (vector2_type) :: intersect, pseudo_vel, rnorm, edge_vel, inv_edge_vel, inv_norm, middle_pos
     type (vector2_type) :: offset1, offset2, middle_vec, inv_middle, inv_edge_targ
@@ -341,7 +343,8 @@ contains
 
   end subroutine response
 
-  subroutine collision (me, cur_obj)
+  subroutine collision (integ, me, cur_obj)
+    class (base_integrator), pointer :: integ
     type (object), pointer :: me
     type (object), pointer :: cur_obj
        type (point_particle), pointer :: cur
@@ -408,7 +411,7 @@ contains
                 point => me%particles(ii)
                 st => cur_obj%sticks(nearest)
                 
-                call impulse_response(point, st)
+                call impulse_response(integ, point, st)
 
               end block
             end if
@@ -419,7 +422,8 @@ contains
  
   end subroutine collision
 
-  subroutine constraint (cur_obj)
+  subroutine constraint (integ, cur_obj)
+    class (base_integrator), pointer :: integ
     type (object), pointer :: cur_obj
     type (point_particle), pointer :: cur
     integer :: ii
@@ -429,16 +433,24 @@ contains
        
        cur%response_applied = .FALSE.
        if (cur%pos%y > SCREEN_HEIGHT - cur%radius) then
-          cur%pos%y = SCREEN_HEIGHT - cur%radius
-          cur%prev_pos%y = cur%pos%y + (cur%verlet_velocity%y * COEFF_ELASTIC) * delta
-          cur%prev_pos%x = cur%pos%x - (cur%verlet_velocity%x * COEFF_ELASTIC) * delta
+          block
+            type (vector2_type) :: norm, vel, new_vel
+
+            norm = vector2_type (0.0, -1.0)
+            vel = integ%get_velocity (cur)
+
+            cur%pos%y = SCREEN_HEIGHT - cur%radius
+            new_vel = vscale (vsub(vel, vscale(norm, 2 * vdot(vel, norm))), COEFF_ELASTIC)
+            call integ%set_velocity (cur, new_vel)
+          end block
        end if
        
     end do
   end subroutine
     
-   subroutine iter2 (f, objects, num)
+   subroutine iter2 (f, integ, objects, num)
      type (object), target, dimension(*) :: objects
+     class (base_integrator), pointer :: integ
      type (object), pointer :: obj
      procedure (obj_iter2) :: f
      integer :: num, i
@@ -457,7 +469,7 @@ contains
      
                if (.not. cur_obj%init) cycle
 
-               call f (obj, cur_obj)
+               call f (integ, obj, cur_obj)
 
              end block
           end do
@@ -466,9 +478,10 @@ contains
      end do
   end subroutine iter2
 
-   subroutine iter (f, objects, num)
+   subroutine iter (f, integ, objects, num)
      type (object), target, dimension(*) :: objects
-     procedure (iter) :: f
+     class (base_integrator), pointer :: integ 
+     procedure (base_integrate) :: f
      integer :: num, i
      
      do i = 1, num
@@ -479,7 +492,7 @@ contains
           
           if (.not. cur_obj%init) cycle
           
-          call f (cur_obj)
+          call f (integ, cur_obj)
         end block
 
      end do

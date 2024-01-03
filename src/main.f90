@@ -46,24 +46,24 @@ program main
        call clear_background(BLACK)
        
        do i = 1, 3
-          call iter(apply_springs, eng%obj, size(eng%obj))
+          call iter(apply_springs, integ, eng%obj, size(eng%obj))
        end do
 
-       call iter(apply_shape_match, eng%obj, size(eng%obj))
+       call iter(apply_shape_match, integ, eng%obj, size(eng%obj))
        
-       call iter(apply_gravity, eng%obj, size(eng%obj))
-       call iter(constraint, eng%obj, size(eng%obj))
-       call iter2(collision, eng%obj, size(eng%obj))
+       call iter(apply_gravity, integ, eng%obj, size(eng%obj))
+       call iter(constraint, integ, eng%obj, size(eng%obj))
+       call iter2(collision, integ, eng%obj, size(eng%obj))
        
-       ! call iter(inter, eng%obj, size(eng%obj))
+       call iter(do_integrate, integ, eng%obj, size(eng%obj))
        
-       call iter(render, eng%obj, size(eng%obj))
-       call iter(render_sticks, eng%obj, size(eng%obj))
+       call iter(render, integ, eng%obj, size(eng%obj))
+       call iter(render_sticks, integ, eng%obj, size(eng%obj))
        
        if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
           ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
-          call instantiate_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 20.0)
-          ! call instantiate_rectangle (eng_ptr, get_mouse_position(), 100.0, 100., 20.0)
+          ! call instantiate_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 20.0)
+          call instantiate_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
           ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
           ! call instantiate_polygon (eng_ptr, get_mouse_position(), 35.0, 16)
        end if

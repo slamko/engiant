@@ -16,6 +16,7 @@ contains
     type (point_particle), pointer :: obj
     type (vector2_type) :: param
 
+    obj%prev_pos = vadd(obj%pos, vinv(vscale(param, delta)))
   end subroutine verlet_set_velocity
 
   function verlet_velocity (point, prev_pos, avarage_delta) result (vel)
