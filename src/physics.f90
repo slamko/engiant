@@ -1,14 +1,13 @@
 module physics
   use math
   use types
+  use integrator
 
   implicit none
 
   real, parameter :: MASS = 1.0
   type(vector2_type), parameter :: G_ACC = vector2_type(0.0, 9.86 * 10.0)
   real, parameter :: COEFF_ELASTIC = 0.85
-
-  real :: delta, prev_delta
 
   interface
 
@@ -285,7 +284,6 @@ contains
     point%response_applied = .TRUE.
   end subroutine impulse_response
 
-    
   subroutine response (point, st)
     type (vector2_type) :: avg_velocity, intermid, intermid_vec, targ, diff_prev, edge_target
     type (vector2_type) :: intersect, pseudo_vel, rnorm, edge_vel, inv_edge_vel, inv_norm, middle_pos
@@ -470,7 +468,7 @@ contains
 
    subroutine iter (f, objects, num)
      type (object), target, dimension(*) :: objects
-     procedure (obj_iter) :: f
+     procedure (iter) :: f
      integer :: num, i
      
      do i = 1, num

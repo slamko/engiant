@@ -5,6 +5,30 @@ module generator
   implicit none
 
 contains
+  subroutine insert_object (eng)
+    type (engine), pointer :: eng
+    type (object), pointer :: new_obj
+    integer :: siz
+
+    if (eng%cur_obj >= size(eng%obj)) then
+       block
+       type (object), dimension (size(eng%obj)) :: obj
+       integer :: i
+
+       siz = size(eng%obj)
+       obj = eng%obj
+
+       if (allocated (eng%obj)) deallocate (eng%obj)
+
+       allocate(eng%obj(2 * siz))
+
+       do i = 1, siz
+          eng%obj(i) = obj(i) 
+       end do
+     end block
+    end if
+  end subroutine
+  
   subroutine instantiate_polygon (eng, pos, radius, sector_num)
     type (engine), pointer :: eng
     real :: radius
@@ -16,6 +40,7 @@ contains
     integer :: i
     real :: mass
 
+    call insert_object (eng)
     ob => eng%obj(eng%cur_obj + 1)
     ob%init = .TRUE.
 
@@ -69,6 +94,7 @@ contains
     integer :: i, ii
     real :: mass
 
+    call insert_object (eng)
     ob => eng%obj(eng%cur_obj + 1)
     ob%init = .TRUE.
 
@@ -201,6 +227,7 @@ contains
     integer :: i
     real :: mass
 
+    call insert_object (eng)
     ob => eng%obj(eng%cur_obj + 1)
     ob%init = .TRUE.
 
@@ -306,8 +333,5 @@ contains
 
     eng%cur_obj = eng%cur_obj + 1
   end subroutine instantiate_full_rectangle
-
-
-  
 
 end module generator
