@@ -2,4 +2,5 @@ raylib/
 **.so
 **.o
 **.a
+**.mod
 engine

@@ -214,7 +214,7 @@ contains
 
     allocate(ob%particles(point_num))
     allocate(ob%match_shape(point_num))
-    allocate(ob%sticks(vertical_sticks + horiz_sticks))
+    allocate(ob%sticks(vertical_sticks + horiz_sticks + diag_sticks))
 
     start_pos = vector2_type(pos%x - width / 2, pos%y - height / 2)
     mass = 1.0 / float(point_num)
@@ -273,39 +273,41 @@ contains
      end block
      end do
 
-!!$    do i = 1, (point_num - point_num_x)
-!!$       block
-!!$         real :: length
-!!$         integer p1_id, p2_id
-!!$         p1_id = i
-!!$         p2_id = i + point_num_x + 1
-!!$
-!!$         if (modulo(i, point_num_x) .eq. 0) cycle
-!!$        
-!!$         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
-!!$
-!!$         ob%sticks(vertical_sticks + horiz_sticks + i - (i / point_num_x)) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
-!!$     end block
-!!$
-!!$     end do
-!!$         do i = 1, (point_num - point_num_x)
-!!$       block
-!!$         real :: length
-!!$         integer p1_id, p2_id
-!!$         p1_id = i
-!!$         p2_id = i + point_num_x - 1
-!!$
-!!$         if (modulo(i, point_num_x) .eq. 1) cycle
-!!$        
-!!$         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
-!!$
-!!$         ob%sticks(vertical_sticks + horiz_sticks + (diag_sticks / 2) + i - (((i - 1) / point_num_x) + 1)) = &
-!!$              stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
-!!$     end block
-!!$     end do
-!!$
+    do i = 1, (point_num - point_num_x)
+       block
+         real :: length
+         integer p1_id, p2_id
+         p1_id = i
+         p2_id = i + point_num_x + 1
+
+         if (modulo(i, point_num_x) .eq. 0) cycle
+        
+         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
+
+         ob%sticks(vertical_sticks + horiz_sticks + i - (i / point_num_x)) = stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
+     end block
+
+     end do
+         do i = 1, (point_num - point_num_x)
+       block
+         real :: length
+         integer p1_id, p2_id
+         p1_id = i
+         p2_id = i + point_num_x - 1
+
+         if (modulo(i, point_num_x) .eq. 1) cycle
+        
+         length = vmag(vsub(ob%particles(p1_id)%pos, ob%particles(p2_id)%pos))
+
+         ob%sticks(vertical_sticks + horiz_sticks + (diag_sticks / 2) + i - (((i - 1) / point_num_x) + 1)) = &
+              stick(.TRUE., ob%particles(p1_id), ob%particles(p2_id), length, .FALSE.)
+     end block
+     end do
 
     eng%cur_obj = eng%cur_obj + 1
   end subroutine instantiate_full_rectangle
+
+
+  
 
 end module generator
