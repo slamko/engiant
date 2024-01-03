@@ -46,7 +46,7 @@ contains
          cur%force = vector2_type(0,0)
          cur%pos = vadd(vsub(vscale(cur%pos, 2.0), cur%prev_pos), vscale(acc, (delta ** 2)))
          
-         cur%verlet_velocity = verlet_velocity(cur, cur%prev_pos, delta)
+         cur%velocity = verlet_velocity(cur, cur%prev_pos, delta)
          cur%prev_pos = cur_pos
        end block
     end do
@@ -58,7 +58,7 @@ contains
     type (point_particle), pointer :: obj
     type (vector2_type) :: vel
 
-    vel = obj%verlet_velocity
+    vel = obj%velocity
   end function verlet_get_velocity
   
 end module verlet

@@ -22,10 +22,10 @@ module types
      type (vector2_type) :: prev_pos
      type (vector2_type) :: force
      real :: mass
+     type (vector2_type) :: velocity
   end type verlet_body
 
   type, extends (verlet_body) :: point_particle
-     type (vector2_type) :: verlet_velocity
      real :: radius
      logical :: response_applied
   end type point_particle

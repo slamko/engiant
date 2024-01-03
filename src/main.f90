@@ -10,6 +10,7 @@ program main
   use generator
   use integrator
   use verlet
+  use rk4
 
   implicit none
 
@@ -22,9 +23,9 @@ program main
   call init_window(SCREEN_WIDTH, SCREEN_HEIGHT, 'Fortran raylib' // c_null_char)
   call set_target_fps(FPS)
 
-  allocate (eng%obj(2))
+  allocate (eng%obj(20))
 
-  do j = 1, 2
+  do j = 1, size (eng%obj)
      eng%obj(j)%init = .FALSE.
   end do
   
@@ -36,16 +37,17 @@ program main
      block
        integer :: i
        type (verlet_integrator), target :: verlet_integ
+       type (rk4_integrator), target :: rk4_integ
        class (base_integrator), pointer :: integ
 
-       integ => verlet_integ
+       integ => rk4_integ
 
        delta = get_frame_time()
        
        call begin_drawing()
        call clear_background(BLACK)
        
-       do i = 1, 3
+       do i = 1, 5
           call iter(apply_springs, integ, eng%obj, size(eng%obj))
        end do
 
@@ -62,8 +64,8 @@ program main
        
        if (is_mouse_button_released(MOUSE_BUTTON_LEFT)) then
           ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
-          ! call instantiate_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 20.0)
-          call instantiate_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
+          call instantiate_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 20.0)
+          ! call instantiate_rectangle (eng_ptr, get_mouse_position(), 80.0, 80., 80.0)
           ! call instantiate_full_rectangle (eng_ptr, get_mouse_position(), 120.0, 160., 40.0)
           ! call instantiate_polygon (eng_ptr, get_mouse_position(), 35.0, 16)
        end if

@@ -94,7 +94,7 @@ contains
     integer :: i, ii
     real :: mass
 
-    call insert_object (eng)
+    ! call insert_object (eng)
     ob => eng%obj(eng%cur_obj + 1)
     ob%init = .TRUE.
 

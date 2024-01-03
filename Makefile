@@ -1,5 +1,5 @@
 LIBS=-lraylib -lGL -lm -lpthread -ldl -lrt -lX11 -llapack -lglfw -lblas
-RAW_SRC=math.f90 types.f90 render.f90 integrator.f90 generator.f90 verlet.f90 physics.f90 main.f90
+RAW_SRC=math.f90 types.f90 render.f90 integrator.f90 generator.f90 verlet.f90 rk4.f90 physics.f90 main.f90
 
 SRC = $(patsubst %.f90,src/%.f90,$(RAW_SRC))
 

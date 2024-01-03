@@ -535,6 +535,7 @@ contains
 
           cur%velocity = rk4_vector(cur%velocity, G_ACC, delta)
           cur%pos = rk4_vector(cur%pos, cur%velocity, delta)
+
        end do
        end block
     end do

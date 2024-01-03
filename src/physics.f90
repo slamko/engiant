@@ -129,8 +129,8 @@ contains
           type (vector2_type) :: diff
           real :: dist
           
-          k = 30.0
-          p = 32.0
+          k = 50.0
+          p = 8.0
 
           obj_shape(i)%pos = vadd(center, vrotate(obj_shape(i)%pos, cosb, sinb))
 
@@ -268,17 +268,15 @@ contains
     offset1 = vscale(inv_middle, d2 / len)
     offset2 = vscale(inv_middle, d1 / len)
     
-    ! if (.not. st%p1%response_applied) then
-    st%p1%pos = vadd(st%p1%pos, offset1)
-       ! st%p1%prev_pos = vadd(st%p1%pos, vscale(vinv(new_st_vel), d2 / len))
-       ! call integ%set_velocity(st%p1, new_st_vel)
-    ! end if
+    if (.not. st%p1%response_applied) then
+       st%p1%pos = vadd(st%p1%pos, offset1)
+       ! call integ%set_velocity(st%p1, vscale(new_st_vel, d2 / len))
+    end if
     
-    ! if (.not. st%p2%response_applied) then
-    st%p2%pos = vadd(st%p2%pos, offset2)
-       ! call integ%set_velocity(st%p2, new_st_vel)
-       ! st%p2%prev_pos = vadd(st%p2%pos, vscale(vinv(new_st_vel), d1 / len))
-    ! end if
+    if (.not. st%p2%response_applied) then
+       st%p2%pos = vadd(st%p2%pos, offset2)
+       ! call integ%set_velocity(st%p2, vscale(new_st_vel, d1 / len))
+    end if
     
     call integ%set_velocity (point, new_vel)
 
@@ -299,7 +297,7 @@ contains
     d2 = vmag(vsub(st%p2%pos, intersect))
     len = vmag(vsub(st%p2%pos, st%p1%pos))
     
-    pseudo_vel = vsub(point%pos, point%prev_pos)
+    pseudo_vel = integ%get_velocity(point)
     
     rnorm = vnormalize(vsub(intersect, point%pos))
     inv_norm = rnorm
@@ -314,7 +312,7 @@ contains
     intermid = vadd(point%pos, pseudo_vel)
     intermid_vec = vsub(point%pos, intermid)
     
-    edge_vel = vadd(vsub(st%p1%pos, st%p1%prev_pos), vsub(st%p2%pos, st%p2%prev_pos))
+    edge_vel = vadd(integ%get_velocity(st%p1), integ%get_velocity(st%p2))
     inv_edge_vel = vinv(edge_vel)
     
     targ = vscale(vsub(intermid_vec, vscale(rnorm, 2 * vdot(intermid_vec, rnorm))), COEFF_ELASTIC)
@@ -329,17 +327,18 @@ contains
        
        st%p1%pos = vadd(st%p1%pos, offset1)
        ! st%p1%prev_pos = vadd(st%p1%pos, vscale(edge_target, d1 / len))
+       call integ%set_velocity (st%p1, vinv(vscale(edge_target, d2 / len)))
     end if
     
     if (.not. st%p2%response_applied) then
        
        st%p2%pos = vadd(st%p2%pos, offset2)
+       call integ%set_velocity (st%p2, vinv(vscale(edge_target, d1 / len)))
        ! st%p2%prev_pos = vadd(st%p2%pos, vscale(edge_target, d2 / len))
     end if
     
-    point%prev_pos = vadd(point%pos, targ)
+    call integ%set_velocity (point, vinv(targ))
     point%response_applied = .TRUE.
-
 
   end subroutine response
 
